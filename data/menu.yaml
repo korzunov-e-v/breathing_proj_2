@@ -12,7 +12,7 @@ vpn:
   text: "Раздел VPN;"
   media:
     - https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/art/icon256.png
-    - https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
+    - AgACAgIAAxkBAAICXGkkKQ5KQ_8NPjMYTdf2UCxJ8zUCAALWDmsbsx4gSe1U4rvkarPFAQADAgADeAADNgQ
   buttons:
     - text: "⬅️ Назад"
       goto: menu

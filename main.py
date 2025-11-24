@@ -13,7 +13,7 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    Application
+    Application, MessageHandler, filters
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +23,19 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # ------------------------------------------------------------
 #  У Т И Л И Т Ы
 # ------------------------------------------------------------
+
+async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if msg.photo:
+        # Берем самый большой размер
+        file_id = msg.photo[-1].file_id
+        await msg.reply_text(f'Photo file_id: <code>{file_id}</code>', parse_mode='HTML')
+    elif msg.video:
+        file_id = msg.video.file_id
+        await msg.reply_text(f"Video file_id: <code>{file_id}<code>", parse_mode="HTML")
+    else:
+        await msg.reply_text("Пришлите фото или видео.")
+
 
 async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
     """Удаляет старые сообщения меню если они сохранены."""
@@ -136,6 +149,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, receive_media))
     register_handlers(app)
 
     app.run_polling()
