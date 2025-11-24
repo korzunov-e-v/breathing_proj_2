@@ -1,0 +1,28 @@
+menu:
+    text: "Главное меню;"
+    buttons:
+        - text: "VPN"
+          goto: vpn
+        - text: "Профиль"
+          goto: profile
+        - text: "Новое меню"
+          goto: custom
+
+vpn:
+    text: "Раздел VPN;"
+    image: https://dockerstatic.com/hub-ui/BDxbHJj3.png
+    buttons:
+        - text: "⬅️ Назад"
+          goto: menu
+
+profile:
+    text: "Профиль;"
+    buttons:
+        - text: "⬅️ Назад"
+          goto: menu
+
+custom:
+    text: "Новое меню;"
+    buttons:
+        - text: "⬅️ Назад"
+          goto: menu
