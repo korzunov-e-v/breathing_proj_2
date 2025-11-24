@@ -17,9 +17,8 @@ from telegram.ext import (
 )
 import telegram
 
-
 logging.basicConfig(level=logging.INFO)
-
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --------------------------- SEND MEDIA ---------------------------
 
@@ -55,7 +54,7 @@ async def send_media_group_and_buttons(update: Update, context: ContextTypes.DEF
 
 # --------------------------- YAML HANDLERS ---------------------------
 
-async def register_handlers(app: Application):
+def register_handlers(app: Application):
     with open("data/menu.yaml", "r") as f:
         data = yaml.safe_load(f)
 
@@ -66,12 +65,14 @@ async def register_handlers(app: Application):
 
         def make_handler(name=menu_name, text_=text, images_=images, buttons_=buttons):
             async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+                await update.callback_query.answer()
                 await send_media_group_and_buttons(
                     update, context,
                     media=images_,
                     text=text_,
                     buttons=buttons_
                 )
+
             return handler
 
         # команда /menu_name
@@ -89,17 +90,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Меню: /menu")
 
 
-async def main():
+def main():
     TOKEN = "8206130717:AAEPRFbSAnvQdttbZ1EpYwsZtI6cO4I5njg"
 
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
 
-    app = await register_handlers(app)
+    # ⚠️ register_handlers — обычная функция!
+    register_handlers(app)
 
     app.run_polling()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
