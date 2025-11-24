@@ -10,8 +10,9 @@ menu:
 
 vpn:
   text: "Раздел VPN;"
-  images:
-    - https://dockerstatic.com/hub-ui/BDxbHJj3.png
+  media:
+    - https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/art/icon256.png
+    - https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
   buttons:
     - text: "⬅️ Назад"
       goto: menu

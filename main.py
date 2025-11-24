@@ -1,58 +1,100 @@
-import asyncio
 import logging
 import yaml
+
 from telegram import (
     Update,
     InputMediaPhoto,
     InputMediaVideo,
-    InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InlineKeyboardButton,
 )
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
     CommandHandler,
     CallbackQueryHandler,
-    Application,
+    ContextTypes,
+    Application
 )
-import telegram
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# --------------------------- SEND MEDIA ---------------------------
 
-async def send_media_group_and_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE,
-                                       media, text, buttons):
+# ------------------------------------------------------------
+#  У Т И Л И Т Ы
+# ------------------------------------------------------------
+
+async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
+    """Удаляет старые сообщения меню если они сохранены."""
+    msg1 = context.user_data.get("menu_msg_media")
+    msg2 = context.user_data.get("menu_msg_buttons")
+
+    chat_id = context.user_data.get("chat_id")
+    if not chat_id:
+        return
+
+    if msg1:
+        try:
+            await context.bot.delete_message(chat_id, msg1)
+        except:
+            pass
+
+    if msg2:
+        try:
+            await context.bot.delete_message(chat_id, msg2)
+        except:
+            pass
+
+
+async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
+                    media, text, buttons):
+
     chat_id = update.effective_chat.id
 
-    # 1. отправка media group (если список медиа)
-    if media and isinstance(media, list):
-        media_group = []
+    # Удаляем старые сообщения
+    old = context.user_data.get("menu_messages", [])
+    for msg_id in old:
+        try:
+            await context.bot.delete_message(chat_id, msg_id)
+        except:
+            pass
+    context.user_data["menu_messages"] = []
+
+    # ---------- 1. MEDIA GROUP ----------
+    media_group = []
+
+    if media:
         for m in media:
-            # автоматически определяем тип
-            if str(m).startswith("BAAC"):  # пример file_id видео
+            m_str = str(m).lower()
+
+            # Видео
+            if m_str.endswith(".mp4") or m_str.startswith("baac"):
                 media_group.append(InputMediaVideo(m))
+            # Фото
             else:
                 media_group.append(InputMediaPhoto(m))
 
-        await context.bot.send_media_group(chat_id=chat_id, media=media_group)
+        sent = await context.bot.send_media_group(chat_id, media=media_group)
+        msg_ids = [msg.message_id for msg in sent]
+        context.user_data["menu_messages"].extend(msg_ids)
 
-    # 2. кнопки
+    # ---------- 2. TEXT ----------
+    msg_text = await context.bot.send_message(chat_id, text)
+    context.user_data["menu_messages"].append(msg_text.message_id)
+
+    # ---------- 3. BUTTONS ----------
     if buttons:
-        keyboard = [
+        kb = [
             [InlineKeyboardButton(btn["text"], callback_data=btn["goto"])]
             for btn in buttons
         ]
-        markup = InlineKeyboardMarkup(keyboard)
-    else:
-        markup = None
+        markup = InlineKeyboardMarkup(kb)
+        msg_btn = await context.bot.send_message(chat_id, "Выберите пункт:", reply_markup=markup)
+        context.user_data["menu_messages"].append(msg_btn.message_id)
 
-    # 3. текстовое сообщение с кнопками
-    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
-
-
-# --------------------------- YAML HANDLERS ---------------------------
+# ------------------------------------------------------------
+#  Р Е Г И С Т Р А Ц И Я   М Е Н Ю
+# ------------------------------------------------------------
 
 def register_handlers(app: Application):
     with open("data/menu.yaml", "r") as f:
@@ -60,34 +102,32 @@ def register_handlers(app: Application):
 
     for menu_name, menu_data in data.items():
         text = menu_data.get("text", "")
-        images = menu_data.get("images", [])
+        media = menu_data.get("media", [])
         buttons = menu_data.get("buttons", [])
 
-        def make_handler(name=menu_name, text_=text, images_=images, buttons_=buttons):
+        def make_handler(name=menu_name, text_=text, media_=media, buttons_=buttons):
             async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-                await update.callback_query.answer()
-                await send_media_group_and_buttons(
+                return await send_menu(
                     update, context,
-                    media=images_,
+                    media=media_,
                     text=text_,
                     buttons=buttons_
                 )
-
             return handler
 
-        # команда /menu_name
         app.add_handler(CommandHandler(menu_name, make_handler()))
-
-        # кнопки callback_data = goto
         app.add_handler(CallbackQueryHandler(make_handler(), pattern=f"^{menu_name}$"))
 
     return app
 
 
-# --------------------------- MAIN ---------------------------
+
+# ------------------------------------------------------------
+#  С Т А Р Т
+# ------------------------------------------------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Меню: /menu")
+    await update.message.reply_text("Главное меню: /menu")
 
 
 def main():
@@ -96,8 +136,6 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-
-    # ⚠️ register_handlers — обычная функция!
     register_handlers(app)
 
     app.run_polling()
