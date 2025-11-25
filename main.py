@@ -113,6 +113,11 @@ def register_handlers(app: Application):
     with open("data/menu.yaml", "r") as f:
         data = yaml.safe_load(f)
 
+    if not "main-menu" in data:
+        raise Exception("no 'menu' section in data/menu.yaml")
+
+    data = data["main-menu"]
+
     for menu_name, menu_data in data.items():
         text = menu_data.get("text", "")
         media = menu_data.get("media", [])
