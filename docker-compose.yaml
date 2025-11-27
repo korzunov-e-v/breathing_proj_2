@@ -1,0 +1,45 @@
+services:
+    bot:
+        build: .
+        container_name: breathing-bot
+        restart: unless-stopped
+        env_file:
+            - .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            - TZ=Europe/Moscow
+            - POSTGRES_HOST=postgres
+            - POSTGRES_PORT=5432
+#        networks:
+#            - net
+        volumes:
+            - ./src:/srv/src
+#            - ./alembic:/srv/alembic
+#        command: >
+#            bash -c "cd /srv && uv run alembic upgrade head && uv run src/main.py"
+#        extra_hosts:
+#            - "host.docker.internal:172.18.0.1"
+
+    postgres:
+        image: postgres:16
+        container_name: postgres
+        environment:
+            - TZ=Etc/UTC
+        ports:
+            - "127.0.0.1:15432:5432"
+        env_file:
+            - .env
+        volumes:
+            - ./pg_data:/var/lib/postgresql/data
+#        networks:
+#            - net
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        restart: unless-stopped
+#        extra_hosts:
+#            - "host.docker.internal:172.18.0.1"

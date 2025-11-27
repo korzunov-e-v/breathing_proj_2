@@ -16,6 +16,8 @@ from telegram.ext import (
     Application, MessageHandler, filters
 )
 
+from src.settings import settings
+
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -110,7 +112,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
 # ------------------------------------------------------------
 
 def register_handlers(app: Application):
-    with open("data/menu.yaml", "r") as f:
+    with open("../data/menu.yaml", "r") as f:
         data = yaml.safe_load(f)
 
     if not "main-menu" in data:
@@ -149,7 +151,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    TOKEN = "8206130717:AAEPRFbSAnvQdttbZ1EpYwsZtI6cO4I5njg"
+    TOKEN = settings.bot_token
 
     app = ApplicationBuilder().token(TOKEN).build()
 
