@@ -97,3 +97,41 @@ class NotificationLogView(BaseSecureModelView):
     can_create = False
     can_edit = False
     can_delete = False
+
+
+class PracticeLogView(BaseSecureModelView):
+    column_list = ("id", "user", "practice", "completed_at", "feedback_rating")
+    column_filters = ("completed_at", "feedback_rating")
+    form_columns = ("user", "practice", "mood_before", "mood_after", "feedback_rating", "feedback_comment")
+    can_create = False  # Логи создаются автоматически
+
+
+class PhraseView(BaseSecureModelView):
+    column_list = ("id", "text", "category", "for_premium")
+    column_searchable_list = ("text",)
+    column_filters = ("category", "for_premium")
+    form_columns = ("text", "category", "for_premium")
+
+    form_overrides = {
+        'text': CKTextAreaField
+    }
+
+
+class AchievementView(BaseSecureModelView):
+    column_list = ("id", "name", "condition_type", "condition_value")
+    column_searchable_list = ("name",)
+    column_filters = ("condition_type",)
+    form_columns = ("name", "description", "icon", "condition_type", "condition_value")
+
+
+class UserAchievementView(BaseSecureModelView):
+    column_list = ("id", "user", "achievement", "unlocked_at")
+    column_filters = ("unlocked_at",)
+    form_columns = ("user", "achievement")
+    can_create = False  # Разблокируются автоматически
+
+
+class SubscriptionView(BaseSecureModelView):
+    column_list = ("id", "user", "plan_type", "started_at", "expires_at", "is_active")
+    column_filters = ("plan_type", "is_active", "started_at")
+    form_columns = ("user", "plan_type", "started_at", "expires_at", "is_active")

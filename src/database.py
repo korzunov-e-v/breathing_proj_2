@@ -1,7 +1,8 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from alembic.config import Config
+from alembic import command
 
 from src.settings import settings
 
@@ -21,7 +22,7 @@ engine = create_engine(
     # Для разработки можно добавить echo=True для логирования SQL-запросов
     echo=False,
     pool_pre_ping=True,  # Проверяет соединение перед использованием
-    pool_recycle=300,    # Переподключается каждые 300 секунд
+    pool_recycle=300,  # Переподключается каждые 300 секунд
 )
 
 # Создаем фабрику сессий
@@ -29,6 +30,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Базовый класс для моделей
 Base = declarative_base()
+
 
 # Зависимость для получения сессии базы данных
 def get_db():
@@ -38,6 +40,18 @@ def get_db():
     finally:
         db.close()
 
-# Функция для создания таблиц (вызывается при инициализации приложения)
+
+def run_migrations():
+    """Запустить миграции Alembic"""
+    try:
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        print("✅ Миграции успешно применены")
+    except Exception as e:
+        print(f"❌ Ошибка при применении миграций: {e}")
+        raise
+
+
 def create_tables():
-    Base.metadata.create_all(bind=engine)
+    """Создать таблицы через миграции"""
+    run_migrations()

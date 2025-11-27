@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.17.2",
     "flask>=3.1.2",
     "flask-admin>=2.0.2",
     "flask-sqlalchemy>=3.1.1",

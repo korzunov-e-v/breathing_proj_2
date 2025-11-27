@@ -68,6 +68,18 @@ class User(Base):
     favorites = relationship("Favorite", back_populates="user")
     logs = relationship("NotificationLog", back_populates="user")
 
+    # Новые поля
+    total_practice_minutes = Column(Integer, default=0)
+    reminder_count_today = Column(Integer, default=0)
+    last_reminder_sent_at = Column(DateTime(timezone=True))
+    freeze_reminders = Column(Boolean, default=False)
+
+    # Связи с новыми таблицами
+    practice_logs = relationship("PracticeLog")
+    achievements = relationship("UserAchievement")
+    subscriptions = relationship("Subscription")
+
+
     def __repr__(self):
         return f"User(id={self.id}, tg_id={self.tg_id}, username='{self.username}')"
 
@@ -84,7 +96,7 @@ class Practice(Base):
     mood_id = Column(Integer, ForeignKey("moods.id"), nullable=False)
     mood = relationship("Mood", back_populates="practices")
 
-    audio_file_id = Column(String(255))
+    audio_file_id = Column(String(500))
     intro_text = Column(Text)
     outro_text = Column(Text)
 
@@ -96,6 +108,103 @@ class Practice(Base):
     def __str__(self):
         mood_name = self.mood.name if self.mood else "Unknown Mood"
         return f"Day {self.day_number} - {mood_name}"
+
+
+class PracticeLog(Base):
+    __tablename__ = "practice_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    practice_id = Column(Integer, ForeignKey("practices.id"), nullable=False)
+    completed_at = Column(DateTime(timezone=True), server_default=func.now())
+    mood_before = Column(String(100))  # настроение до практики
+    mood_after = Column(String(100))  # настроение после практики
+    feedback_rating = Column(Integer)  # 1-5 звезд
+    feedback_comment = Column(Text)  # текстовый отзыв
+
+    user = relationship("User")
+    practice = relationship("Practice")
+    # Новые поля
+    duration_minutes = Column(Integer, default=5)
+    practice_type = Column(String(100))  # 'basic', 'advanced', 'kundalini', etc.
+
+    # Связи
+    practice_logs = relationship("PracticeLog")
+    def __repr__(self):
+        return f"PracticeLog(user_id={self.user_id}, practice_id={self.practice_id})"
+
+    def __str__(self):
+        return f"Practice #{self.practice_id} by User #{self.user_id}"
+
+
+class Phrase(Base):
+    __tablename__ = "phrases"
+
+    id = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    category = Column(String(100))  # 'discipline', 'breathing', 'stress', 'attention', 'body', 'exhalation_cycle'
+    for_premium = Column(Boolean, default=False)  # только для премиум?
+
+    def __repr__(self):
+        return f"Phrase(id={self.id}, category='{self.category}')"
+
+    def __str__(self):
+        return f"{self.text[:50]}..." if len(self.text) > 50 else self.text
+
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    icon = Column(String(255))
+    condition_type = Column(String(100))  # 'streak', 'practice_count', 'emotion_count', etc.
+    condition_value = Column(Integer)
+
+    def __repr__(self):
+        return f"Achievement(id={self.id}, name='{self.name}')"
+
+    def __str__(self):
+        return self.name
+
+
+class UserAchievement(Base):
+    __tablename__ = "user_achievements"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False)
+    unlocked_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+    achievement = relationship("Achievement")
+
+    def __repr__(self):
+        return f"UserAchievement(user_id={self.user_id}, achievement_id={self.achievement_id})"
+
+    def __str__(self):
+        return f"{self.achievement.name} - {self.user.username}"
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_type = Column(String(50))  # 'basic', 'premium'
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True))
+    is_active = Column(Boolean, default=True)
+
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"Subscription(user_id={self.user_id}, plan='{self.plan_type}')"
+
+    def __str__(self):
+        status = "active" if self.is_active else "inactive"
+        return f"{self.plan_type} ({status})"
 
 
 class Emotion(Base):

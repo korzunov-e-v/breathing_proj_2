@@ -16,6 +16,7 @@ from telegram.ext import (
     Application, MessageHandler, filters
 )
 
+from src.database import create_tables
 from src.settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -152,7 +153,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     TOKEN = settings.bot_token
-
+    create_tables()
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
