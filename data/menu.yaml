@@ -1,25 +1,88 @@
 main-menu:
     menu:
-        text: "Главное меню;"
+        text: |
+            🧘 *Ваше пространство для дыхания*
+            
+            Здесь вы найдете практики, которые помогут обрести гармонию и спокойствие.
         buttons:
-            - { text: "VPN", goto: vpn }
-            - { text: "Профиль", goto: profile }
-            - { text: "Новое меню", goto: custom }
+            - { text: "🧘 Практика дня", goto: daily_practice }
+            - { text: "📚 Библиотека", goto: library }
+            - { text: "📊 Дневник эмоций", goto: emotion_diary }
+            - { text: "📈 Аналитика", goto: analytics }
+            - { text: "⚙️ Настройки", goto: settings }
 
-    vpn:
-        text: "Раздел VPN;"
-        media:
-            - https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/art/icon256.png # картинка
-            - AgACAgIAAxkBAAICXGkkKQ5KQ_8NPjMYTdf2UCxJ8zUCAALWDmsbsx4gSe1U4rvkarPFAQADAgADeAADNgQ  # картинка
+    daily_practice:
+        text: "Практика дня будет здесь"
+        buttons:
+            - { text: "✅ Я сделал практику", goto: practice_complete }
+            - { text: "⬅️ Назад", goto: menu }
+
+    practice_complete:
+        text: "Отлично! Практика завершена. Как ваше состояние?"
+        buttons:
+            - { text: "😊 Хорошо", goto: practice_reflection_good }
+            - { text: "😌 Спокойно", goto: practice_reflection_calm }
+            - { text: "😰 Тревожно", goto: practice_reflection_anxious }
+
+    practice_reflection_good:
+        text: "Рад слышать! Продолжайте в том же духе."
+        buttons:
+            - { text: "⬅️ В главное меню", goto: menu }
+
+    practice_reflection_calm:
+        text: "Прекрасно. Спокойствие - это сила."
+        buttons:
+            - { text: "⬅️ В главное меню", goto: menu }
+
+    practice_reflection_anxious:
+        text: "Спасибо за честность. Практика поможет снизить тревогу."
+        buttons:
+            - { text: "⬅️ В главное меню", goto: menu }
+
+    library:
+        text: "📚 *Библиотека знаний*"
+        buttons:
+            - { text: "📖 Статьи", goto: articles }
+            - { text: "🎵 Музыка", goto: music }
+            - { text: "💝 Избранное", goto: favorites }
+            - { text: "⬅️ Назад", goto: menu }
+
+    articles:
+        text: "Статьи о дыхании и медитации"
+        buttons:
+            - { text: "⬅️ Назад", goto: library }
+
+    music:
+        text: "Музыка для релаксации"
+        buttons:
+            - { text: "⬅️ Назад", goto: library }
+
+    favorites:
+        text: "Ваши сохраненные материалы"
+        buttons:
+            - { text: "⬅️ Назад", goto: library }
+
+    emotion_diary:
+        text: "Дневник эмоций"
         buttons:
             - { text: "⬅️ Назад", goto: menu }
 
-    profile:
-        text: "Профиль;"
+    analytics:
+        text: "Ваша статистика и прогресс"
         buttons:
             - { text: "⬅️ Назад", goto: menu }
 
-    custom:
-        text: "Новое меню;"
+    settings:
+        text: "Настройки"
         buttons:
+            - { text: "🕐 Изменить время практик", goto: change_time }
             - { text: "⬅️ Назад", goto: menu }
+
+    change_time:
+        text: "Выберите удобное время для практик:"
+        buttons:
+            - { text: "07:00", goto: set_time_07:00 }
+            - { text: "08:00", goto: set_time_08:00 }
+            - { text: "09:00", goto: set_time_09:00 }
+            - { text: "10:00", goto: set_time_10:00 }
+            - { text: "⬅️ Назад", goto: settings }

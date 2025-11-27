@@ -1,12 +1,11 @@
 import logging
 import yaml
+from sqlalchemy import func
 
 from telegram import (
     Update,
     InputMediaPhoto,
     InputMediaVideo,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -62,6 +61,211 @@ async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
+from src.database import SessionLocal
+from src.models import User
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import asyncio
+
+
+
+
+from src.models import PracticeLog
+
+
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    # Сохраняем/обновляем пользователя в БД
+    db = SessionLocal()
+    try:
+        db_user = db.query(User).filter(User.tg_id == user.id).first()
+        if not db_user:
+            db_user = User(
+                tg_id=user.id,
+                username=user.username,
+                current_day=1,
+                streak=0
+            )
+            db.add(db_user)
+            db.commit()
+            print(f"Создан новый пользователь: {user.username} (ID: {user.id})")
+
+            # Онбординг для нового пользователя
+            await send_onboarding(update, context, db_user)
+        else:
+            print(f"Пользователь уже существует: {user.username}")
+            # Показываем главное меню из YAML для существующего пользователя
+            await show_menu_by_name(update, context, "menu")
+    finally:
+        db.close()
+
+
+async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик выбора времени"""
+    query = update.callback_query
+    await query.answer()
+
+    time_str = query.data.replace("set_time_", "")
+    user_id = query.from_user.id
+
+    # Сохраняем время в БД
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            user.practice_time = time_str
+            db.commit()
+
+            # Показываем главное меню из YAML после настройки
+            await query.edit_message_text(
+                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\nТеперь я буду напоминать вам о практике в это время каждый день.",
+                parse_mode='Markdown'
+            )
+            await show_menu_by_name(update, context, "menu")
+        else:
+            await query.edit_message_text("Пользователь не найден. Начните с /start")
+    finally:
+        db.close()
+
+
+async def handle_practice_completion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик завершения практики"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            # Создаем запись в логе практик
+            practice_log = PracticeLog(
+                user_id=user.id,
+                practice_id=user.current_day,
+                completed_at=func.now(),
+                mood_before=context.user_data.get('mood_before'),
+                mood_after=context.user_data.get('mood_after')
+            )
+            db.add(practice_log)
+
+            # Обновляем прогресс пользователя
+            user.streak += 1
+            user.current_day += 1
+            user.total_practice_minutes += 5
+
+            # Сбрасываем счетчик напоминаний
+            user.reminder_count_today = 0
+            user.freeze_reminders = False
+
+            db.commit()
+
+            # Показываем меню рефлексии из YAML
+            await show_menu_by_name(update, context, "practice_complete")
+        else:
+            await query.edit_message_text("Пользователь не найден")
+    finally:
+        db.close()
+
+
+async def handle_reflection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик рефлексии после практики"""
+    query = update.callback_query
+    await query.answer()
+
+    reflection_type = query.data.replace("reflection_", "")
+
+    # Получаем соответствующее меню из YAML
+    menu_name = f"practice_reflection_{reflection_type}"
+    await show_menu_by_name(update, context, menu_name)
+
+
+async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик для меню смены времени"""
+    query = update.callback_query
+    await query.answer()
+
+    # Показываем меню выбора времени (программно, не из YAML)
+    time_keyboard = [
+        [InlineKeyboardButton("07:00", callback_data="set_time_07:00"),
+         InlineKeyboardButton("08:00", callback_data="set_time_08:00")],
+        [InlineKeyboardButton("09:00", callback_data="set_time_09:00"),
+         InlineKeyboardButton("10:00", callback_data="set_time_10:00")],
+        [InlineKeyboardButton("11:00", callback_data="set_time_11:00"),
+         InlineKeyboardButton("12:00", callback_data="set_time_12:00")],
+    ]
+    reply_markup = InlineKeyboardMarkup(time_keyboard)
+
+    await query.edit_message_text(
+        "Выберите удобное время для ежедневных практик:",
+        reply_markup=reply_markup
+    )
+
+
+async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, user: User):
+    """Процесс онбординга для нового пользователя"""
+
+    # 1. Приветствие
+    welcome_text = """
+*Это ваше тихое место.* 🌿
+
+Давайте создадим ритм, который будет поддерживать вас ежедневно.
+
+Здесь вы найдете практики дыхания, которые помогут:
+• Снизить стресс и тревогу
+• Улучшить концентрацию  
+• Обрести внутреннее спокойствие
+"""
+    await update.message.reply_text(welcome_text, parse_mode='Markdown')
+
+    await asyncio.sleep(2)
+
+    # 2. Микро-практика (20 секунд)
+    practice_text = """
+*Давайте начнем с небольшой практики.*
+
+Сядьте удобно, закройте глаза.
+Сосредоточьтесь на дыхании...
+
+*20 секунд осознанного дыхания*
+⏰ Я подожду...
+"""
+    await update.message.reply_text(practice_text, parse_mode='Markdown')
+
+    # Имитация ожидания практики
+    await asyncio.sleep(5)  # В реальном боте 20 секунд
+
+    # 3. Объяснение пространства
+    explanation_text = """
+*Отлично!* ✨
+
+Теперь давайте настроим время для ваших ежедневных практик.
+
+Выберите удобное время, и я буду напоминать вам о практике.
+"""
+    await update.message.reply_text(explanation_text, parse_mode='Markdown')
+
+    # 4. Настройка времени
+    time_keyboard = [
+        [InlineKeyboardButton("07:00", callback_data="set_time_07:00"),
+         InlineKeyboardButton("08:00", callback_data="set_time_08:00")],
+        [InlineKeyboardButton("09:00", callback_data="set_time_09:00"),
+         InlineKeyboardButton("10:00", callback_data="set_time_10:00")],
+        [InlineKeyboardButton("11:00", callback_data="set_time_11:00"),
+         InlineKeyboardButton("12:00", callback_data="set_time_12:00")],
+    ]
+    reply_markup = InlineKeyboardMarkup(time_keyboard)
+
+    await update.message.reply_text(
+        "Выберите удобное время для ежедневных практик:",
+        reply_markup=reply_markup
+    )
+
+
+
 async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     media, text, buttons):
 
@@ -95,7 +299,13 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
         context.user_data["menu_messages"].extend(msg_ids)
 
     # ---------- 2. TEXT ----------
-    msg_text = await context.bot.send_message(chat_id, text)
+    # Используем Markdown для форматирования
+    msg_text = await context.bot.send_message(
+        chat_id,
+        text,
+        parse_mode='Markdown',
+        disable_web_page_preview=True
+    )
     context.user_data["menu_messages"].append(msg_text.message_id)
 
     # ---------- 3. BUTTONS ----------
@@ -105,23 +315,58 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
             for btn in buttons
         ]
         markup = InlineKeyboardMarkup(kb)
-        msg_btn = await context.bot.send_message(chat_id, "Выберите пункт:", reply_markup=markup)
+        msg_btn = await context.bot.send_message(
+            chat_id,
+            "Выберите пункт:",
+            reply_markup=markup
+        )
         context.user_data["menu_messages"].append(msg_btn.message_id)
+
 
 # ------------------------------------------------------------
 #  Р Е Г И С Т Р А Ц И Я   М Е Н Ю
 # ------------------------------------------------------------
+def get_menu_data(menu_name: str) -> dict:
+    """Получает данные меню из YAML по имени"""
+    try:
+        with open("data/menu.yaml", "r") as f:
+            data = yaml.safe_load(f)
+        return data["main-menu"][menu_name]
+    except Exception as e:
+        logging.error(f"Error loading menu {menu_name}: {e}")
+        return {"text": "Меню не найдено", "buttons": []}
+
+async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str):
+    """Показывает меню по имени из YAML"""
+    menu_data = get_menu_data(menu_name)
+    await send_menu(
+        update, context,
+        media=menu_data.get("media", []),
+        text=menu_data.get("text", ""),
+        buttons=menu_data.get("buttons", [])
+    )
 
 def register_handlers(app: Application):
-    with open("../data/menu.yaml", "r") as f:
+    """Регистрирует только статичные меню из YAML, исключая динамические"""
+    with open("data/menu.yaml", "r") as f:
         data = yaml.safe_load(f)
 
-    if not "main-menu" in data:
-        raise Exception("no 'menu' section in data/menu.yaml")
+    if "main-menu" not in data:
+        raise Exception("No 'main-menu' section in data/menu.yaml")
+
+    # Меню, которые обрабатываются отдельно (не регистрируем их здесь)
+    excluded_menus = {
+        "practice_complete", "practice_reflection_good",
+        "practice_reflection_calm", "practice_reflection_anxious",
+        "change_time"
+    }
 
     data = data["main-menu"]
 
     for menu_name, menu_data in data.items():
+        if menu_name in excluded_menus:
+            continue  # Пропускаем меню с собственной логикой
+
         text = menu_data.get("text", "")
         media = menu_data.get("media", [])
         buttons = menu_data.get("buttons", [])
@@ -136,19 +381,11 @@ def register_handlers(app: Application):
                 )
             return handler
 
+        # Регистрируем команду и callback
         app.add_handler(CommandHandler(menu_name, make_handler()))
         app.add_handler(CallbackQueryHandler(make_handler(), pattern=f"^{menu_name}$"))
 
     return app
-
-
-
-# ------------------------------------------------------------
-#  С Т А Р Т
-# ------------------------------------------------------------
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Главное меню: /menu")
 
 
 def main():
@@ -158,6 +395,14 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, receive_media))
+
+    # Обработчики для динамических меню
+    app.add_handler(CallbackQueryHandler(handle_change_time, pattern="^change_time$"))
+    app.add_handler(CallbackQueryHandler(handle_time_selection, pattern="^set_time_"))
+    app.add_handler(CallbackQueryHandler(handle_practice_completion, pattern="^practice_complete$"))
+    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
+
+    # Регистрируем статичные меню из YAML
     register_handlers(app)
 
     app.run_polling()
