@@ -3,7 +3,6 @@ from src.database import get_db, create_tables
 from src.models import User
 
 
-
 # Пример функции для работы с базой данных
 def create_user(db: Session, username: str, tg_id: int):
     db_user = User(username=username, tg_id=tg_id)
