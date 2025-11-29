@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from src.database import SessionLocal, create_tables
-from src.models import PracticeLog, User, Practice
+from src.models import PracticeLog, User, Practice, Mood
 from src.settings import settings
 
 logging.basicConfig(
@@ -42,26 +42,55 @@ async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     else:
         await msg.reply_text("Пришлите фото, видео, аудио или документ.")
 
-async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
-    """Удаляет старые сообщения меню если они сохранены."""
-    msg1 = context.user_data.get("menu_msg_media")
-    msg2 = context.user_data.get("menu_msg_buttons")
 
-    chat_id = context.user_data.get("chat_id")
-    if not chat_id:
-        return
+async def get_moods_keyboard():
+    """Получает список настроений из БД и создает клавиатуру"""
+    db = SessionLocal()
+    try:
+        moods = db.query(Mood).all()
+        keyboard = []
+        for mood in moods:
+            keyboard.append([InlineKeyboardButton(mood.name, callback_data=f"mood_{mood.id}")])
+        return InlineKeyboardMarkup(keyboard)
+    finally:
+        db.close()
 
-    if msg1:
-        try:
-            await context.bot.delete_message(chat_id, msg1)
-        except:
-            pass
 
-    if msg2:
-        try:
-            await context.bot.delete_message(chat_id, msg2)
-        except:
-            pass
+async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик выбора настроения"""
+    query = update.callback_query
+    await query.answer()
+
+    mood_id = query.data.replace("mood_", "")
+    user_id = query.from_user.id
+
+    db = SessionLocal()
+    try:
+        mood = db.query(Mood).filter(Mood.id == mood_id).first()
+        if not mood:
+            await query.edit_message_text("Ошибка: настроение не найдено")
+            return
+
+        # Сохраняем выбранное настроение в context.user_data
+        if 'mood_before' not in context.user_data:
+            # Это настроение перед практикой
+            context.user_data['mood_before'] = mood.name
+            await query.edit_message_text(
+                f"✨ Отлично! Вы выбрали: {mood.name}\n\n"
+                f"Теперь приступайте к практике. После завершения я спрошу ваше настроение снова.",
+                parse_mode='Markdown'
+            )
+
+        else:
+            # Это настроение после практики
+            context.user_data['mood_after'] = mood.name
+            await handle_practice_completion(update, context)
+
+    except Exception as e:
+        logging.error(f"Ошибка в handle_mood_selection: {e}")
+        await query.edit_message_text("Произошла ошибка при сохранении настроения")
+    finally:
+        db.close()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -163,6 +192,10 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
 
             db.commit()
 
+            # Очищаем временные данные настроений
+            context.user_data.pop('mood_before', None)
+            context.user_data.pop('mood_after', None)
+
             # Показываем outro_text если он есть, затем меню рефлексии
             if current_practice and current_practice.outro_text:
                 outro_text = f"""
@@ -179,8 +212,25 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             await show_menu_by_name(update, context, "practice_complete", delete=False)
         else:
             await query.edit_message_text("Пользователь не найден")
+    except Exception as e:
+        logging.error(f"Ошибка в handle_practice_completion: {e}")
+        await query.edit_message_text("Произошла ошибка при завершении практики")
     finally:
         db.close()
+
+
+async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Спрашивает настроение после практики"""
+    query = update.callback_query
+    await query.answer()
+
+    mood_keyboard = await get_moods_keyboard()
+    await query.edit_message_text(
+        "🎯 Практика завершена!\n\nКакое у вас настроение теперь?",
+        reply_markup=mood_keyboard,
+        parse_mode='Markdown'
+    )
+
 
 async def handle_reflection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик рефлексии после практики"""
@@ -301,7 +351,52 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await send_menu(update, context, [], "Выберите действие:", buttons)
             return
 
-        # Показываем практику дня (ОТДЕЛЬНО от меню завершения)
+        # Сначала спрашиваем настроение перед практикой
+        mood_keyboard = await get_moods_keyboard()
+        mood_message = await context.bot.send_message(
+            chat_id=chat_id,
+            text="🧘 *Перед началом практики*\n\nКакое у вас сейчас настроение?",
+            reply_markup=mood_keyboard,
+            parse_mode='Markdown'
+        )
+
+        # Сохраняем ID сообщения с настроением для возможного удаления
+        context.user_data['mood_message_id'] = mood_message.message_id
+
+        # Ждем выбора настроения перед показом практики
+        # Практика будет показана после выбора настроения в handle_mood_selection
+
+    except Exception as e:
+        logging.error(f"Ошибка в show_daily_practice: {e}")
+        error_text = "Произошла ошибка при загрузке практики. Попробуйте позже."
+        if query:
+            await query.edit_message_text(error_text)
+        else:
+            await context.bot.send_message(chat_id, error_text)
+    finally:
+        db.close()
+
+
+async def show_practice_after_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает практику после выбора настроения"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if not user:
+            await query.edit_message_text("Пользователь не найден")
+            return
+
+        practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+        if not practice:
+            await query.edit_message_text("Практика не найдена")
+            return
+
+        # Показываем практику дня
         text = f"""
 🧘 *Практика дня {user.current_day}*
 
@@ -316,38 +411,37 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         if practice.audio_file_id:
             try:
                 await context.bot.send_audio(
-                    chat_id=chat_id,
+                    chat_id=query.message.chat_id,
                     audio=practice.audio_file_id,
                     caption="🎧 Аудио для практики"
                 )
             except Exception as e:
                 logging.error(f"Ошибка отправки аудио: {e}")
 
-        # Отправляем практику как отдельное сообщение
-        if query:
-            await query.edit_message_text(text, parse_mode='Markdown')
-        else:
-            await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+        # Удаляем сообщение с выбором настроения
+        mood_message_id = context.user_data.get('mood_message_id')
+        if mood_message_id:
+            try:
+                await context.bot.delete_message(query.message.chat_id, mood_message_id)
+            except:
+                pass
 
-        # ОТДЕЛЬНО отправляем меню завершения через 2 секунды
-        await asyncio.sleep(2)
+        # Показываем практику и кнопку завершения
+        await query.edit_message_text(text, parse_mode='Markdown')
 
         buttons = [
-            {"text": "✅ Я сделал практику", "goto": "practice_complete"},
+            {"text": "✅ Я сделал практику", "goto": "ask_mood_after"},
             {"text": "⬅️ Главное меню", "goto": "menu"}
         ]
 
         await send_menu(update, context, [], "Отметьте завершение практики:", buttons, delete=False)
 
     except Exception as e:
-        logging.error(f"Ошибка в show_daily_practice: {e}")
-        error_text = "Произошла ошибка при загрузке практики. Попробуйте позже."
-        if query:
-            await query.edit_message_text(error_text)
-        else:
-            await context.bot.send_message(chat_id, error_text)
+        logging.error(f"Ошибка в show_practice_after_mood: {e}")
+        await query.edit_message_text("Произошла ошибка при загрузке практики")
     finally:
         db.close()
+
 
 async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Сброс прогресса и начало заново"""
@@ -373,6 +467,7 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text("Пользователь не найден")
     finally:
         db.close()
+
 
 async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, user: User):
     """Процесс онбординга для нового пользователя"""
@@ -518,6 +613,7 @@ def get_menu_data(menu_name: str) -> dict:
         logging.error(f"Error loading menu {menu_name}: {e}")
         return {"text": f"Ошибка загрузки меню: {e}", "buttons": []}
 
+
 async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str, delete=False):
     """Показывает меню по имени из YAML"""
     menu_data = get_menu_data(menu_name)
@@ -542,7 +638,7 @@ def register_handlers(app: Application):
     excluded_menus = {
         "daily_practice", "practice_complete", "practice_reflection_good",
         "practice_reflection_calm", "practice_reflection_anxious",
-        "practice_reflection_excited", "change_time"  # ДОБАВЛЕНО
+        "practice_reflection_excited", "change_time"
     }
 
     data = data["main-menu"]
@@ -586,8 +682,13 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_change_time, pattern="^change_time$"))
     app.add_handler(CallbackQueryHandler(handle_time_selection, pattern="^set_time_"))
     app.add_handler(CallbackQueryHandler(handle_practice_completion, pattern="^practice_complete$"))
-    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))  # ИСПРАВЛЕНО
+    app.add_handler(CallbackQueryHandler(ask_mood_after_practice, pattern="^ask_mood_after$"))
+    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
     app.add_handler(CallbackQueryHandler(handle_restart_practices, pattern="^restart_practices$"))
+
+    # Обработчики для настроений
+    app.add_handler(CallbackQueryHandler(handle_mood_selection, pattern="^mood_"))
+    app.add_handler(CallbackQueryHandler(show_practice_after_mood, pattern="^show_practice$"))
 
     # ДИНАМИЧЕСКАЯ практика дня - регистрируем отдельно
     app.add_handler(CallbackQueryHandler(show_daily_practice, pattern="^daily_practice$"))
@@ -597,5 +698,7 @@ def main():
     register_handlers(app)
 
     app.run_polling()
+
+
 if __name__ == "__main__":
     main()
