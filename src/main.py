@@ -305,7 +305,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         text = f"""
 🧘 *Практика дня {user.current_day}*
 
-*{practice.intro_text}*
+{practice.intro_text}
 
 Длительность: ~5 минут
 

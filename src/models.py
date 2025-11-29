@@ -28,8 +28,6 @@ class Mood(Base):
     description = Column(Text)
     icon = Column(String(255))
 
-    practices = relationship("Practice", back_populates="mood")
-
     def __repr__(self):
         return f"Mood(id={self.id}, name='{self.name}')"
 
@@ -82,21 +80,18 @@ class Practice(Base):
 
     id = Column(Integer, primary_key=True)
     day_number = Column(Integer, index=True, nullable=False)
-    mood_id = Column(Integer, ForeignKey("moods.id"), nullable=False)
     audio_file_id = Column(String(500))
     intro_text = Column(Text)
     outro_text = Column(Text)
     premium = Column(Boolean, default=False)
 
-    mood = relationship("Mood", back_populates="practices")
     practice_logs = relationship("PracticeLog", back_populates="practice")
 
     def __repr__(self):
-        return f"Practice(id={self.id}, day={self.day_number}, mood_id={self.mood_id})"
+        return f"Practice(id={self.id}, day={self.day_number})"
 
     def __str__(self):
-        mood_name = self.mood.name if self.mood else "Unknown Mood"
-        return f"Day {self.day_number} - {mood_name}"
+        return f"Day {self.day_number}"
 
 
 class PracticeLog(Base):

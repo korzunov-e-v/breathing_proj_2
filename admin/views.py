@@ -36,14 +36,9 @@ class MoodView(BaseSecureModelView):
 
 
 class PracticeView(BaseSecureModelView):
-    column_list = ("id", "day_number", "mood", "premium", "audio_file_id")
-    column_filters = ("day_number", "premium", "mood")
-    form_columns = ("day_number", "mood", "audio_file_id", "intro_text", "outro_text", "premium")
-
-    # Для отображения связанной модели в списке
-    column_formatters = {
-        'mood': lambda v, c, m, p: m.mood.name if m.mood else None
-    }
+    column_list = ("id", "day_number", "premium", "audio_file_id")
+    column_filters = ("day_number", "premium")
+    form_columns = ("day_number", "audio_file_id", "intro_text", "outro_text", "premium")
 
 
 class UserView(BaseSecureModelView):
