@@ -3,14 +3,18 @@ import logging
 
 import yaml
 from sqlalchemy import func
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      InputMediaPhoto, InputMediaVideo, Update)
-from telegram.ext import (Application, ApplicationBuilder,
-                          CallbackQueryHandler, CommandHandler, ContextTypes,
-                          MessageHandler, filters)
+from telegram import (
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    InputMediaPhoto, InputMediaVideo, Update
+)
+from telegram.ext import (
+    Application, ApplicationBuilder,
+    CallbackQueryHandler, CommandHandler, ContextTypes,
+    MessageHandler, filters
+)
 
 from src.database import SessionLocal, create_tables
-from src.models import PracticeLog, User
+from src.models import PracticeLog, User, Practice
 from src.settings import settings
 
 logging.basicConfig(
@@ -19,6 +23,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -163,11 +168,18 @@ async def handle_reflection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    reflection_type = query.data.replace("reflection_", "")
+    reflection_type = query.data.replace("practice_reflection_", "")
+    logging.info(f"Обработчик рефлексии: {reflection_type}")
 
     # Получаем соответствующее меню из YAML
-    menu_name = f"practice_reflection_{reflection_type}"
-    await show_menu_by_name(update, context, menu_name)
+    menu_name = f"practice_{reflection_type}"
+    logging.info(f"Пытаемся загрузить меню: {menu_name}")
+
+    try:
+        await show_menu_by_name(update, context, menu_name)
+    except Exception as e:
+        logging.error(f"Ошибка при загрузке меню {menu_name}: {e}")
+        await query.edit_message_text(f"Ошибка: меню '{menu_name}' не найдено")
 
 
 async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -191,6 +203,157 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup=reply_markup
     )
 
+
+async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает практику дня с динамическими данными из БД"""
+    query = update.callback_query
+    if query and query.message:
+        await query.answer()
+        chat_id = query.message.chat_id
+    else:
+        chat_id = update.effective_chat.id
+
+    user_id = update.effective_user.id
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if not user:
+            await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
+            return
+
+        # Находим практику для текущего дня пользователя
+        practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+
+        if not practice:
+            # Если практики нет - показываем сообщение и предлагаем начать заново
+            text = """
+🎉 *Поздравляем!*
+
+Вы завершили все доступные практики.
+
+Что дальше?
+"""
+            buttons = [
+                {"text": "🔄 Начать заново", "goto": "restart_practices"},
+                {"text": "📚 Открыть библиотеку", "goto": "library"},
+                {"text": "⬅️ Главное меню", "goto": "menu"}
+            ]
+
+            if query:
+                await query.edit_message_text(text, parse_mode='Markdown')
+                await send_menu(update, context, [], "Выберите действие:", buttons)
+            else:
+                await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+                await send_menu(update, context, [], "Выберите действие:", buttons)
+            return
+
+        # Проверяем доступ к премиум контенту
+        if practice.premium and not user.subscribed:
+            # Показываем оффер на подписку (особенно после дня 3)
+            if user.current_day == 3:
+                text = f"""
+✨ *Вы завершили 3 дня практик!*
+
+Прекрасный результат! Чтобы продолжить путешествие и получить доступ к продвинутым практикам, выберите подписку:
+
+*Базовый пакет* - полный доступ к 7-дневной программе
+*Премиум пакет* - углубленные практики + поддержка
+"""
+            else:
+                text = f"""
+🔒 *Премиум контент*
+
+Эта практика доступна только для подписчиков.
+
+День {user.current_day}: {practice.intro_text}
+"""
+
+            buttons = [
+                {"text": "💳 Выбрать подписку", "goto": "subscription_offer"},
+                {"text": "⬅️ Главное меню", "goto": "menu"}
+            ]
+
+            if query:
+                await query.edit_message_text(text, parse_mode='Markdown')
+                await send_menu(update, context, [], "Выберите действие:", buttons)
+            else:
+                await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+                await send_menu(update, context, [], "Выберите действие:", buttons)
+            return
+
+        # Показываем практику дня (ОТДЕЛЬНО от меню завершения)
+        text = f"""
+🧘 *Практика дня {user.current_day}*
+
+*{practice.intro_text}*
+
+Длительность: ~5 минут
+
+Готовы начать?
+"""
+
+        # Если есть аудио - отправляем его
+        if practice.audio_file_id:
+            try:
+                await context.bot.send_audio(
+                    chat_id=chat_id,
+                    audio=practice.audio_file_id,
+                    caption="🎧 Аудио для практики"
+                )
+            except Exception as e:
+                logging.error(f"Ошибка отправки аудио: {e}")
+
+        # Отправляем практику как отдельное сообщение
+        if query:
+            await query.edit_message_text(text, parse_mode='Markdown')
+        else:
+            await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+
+        # ОТДЕЛЬНО отправляем меню завершения через 2 секунды
+        await asyncio.sleep(2)
+
+        buttons = [
+            {"text": "✅ Я сделал практику", "goto": "practice_complete"},
+            {"text": "⬅️ Главное меню", "goto": "menu"}
+        ]
+
+        await send_menu(update, context, [], "Отметьте завершение практики:", buttons, delete=False)
+
+    except Exception as e:
+        logging.error(f"Ошибка в show_daily_practice: {e}")
+        error_text = "Произошла ошибка при загрузке практики. Попробуйте позже."
+        if query:
+            await query.edit_message_text(error_text)
+        else:
+            await context.bot.send_message(chat_id, error_text)
+    finally:
+        db.close()
+
+async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сброс прогресса и начало заново"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            user.current_day = 1
+            user.streak = 0
+            db.commit()
+
+            await query.edit_message_text(
+                "🔄 *Прогресс сброшен!*\n\nНачинаем новое 7-дневное путешествие.",
+                parse_mode='Markdown'
+            )
+            await show_daily_practice(update, context)
+        else:
+            await query.edit_message_text("Пользователь не найден")
+    finally:
+        db.close()
 
 async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, user: User):
     """Процесс онбординга для нового пользователя"""
@@ -254,18 +417,19 @@ async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, us
 
 async def send_menu(
     update: Update, context: ContextTypes.DEFAULT_TYPE,
-    media, text, buttons
+    media, text, buttons, delete=True,
 ):
 
     chat_id = update.effective_chat.id
 
     # Удаляем старые сообщения
     old = context.user_data.get("menu_messages", [])
-    for msg_id in old:
-        try:
-            await context.bot.delete_message(chat_id, msg_id)
-        except:
-            pass
+    if delete:
+        for msg_id in old:
+            try:
+                await context.bot.delete_message(chat_id, msg_id)
+            except:
+                pass
     context.user_data["menu_messages"] = []
 
     # ---------- 1. MEDIA GROUP ----------
@@ -319,11 +483,21 @@ def get_menu_data(menu_name: str) -> dict:
     try:
         with open("data/menu.yaml", "r") as f:
             data = yaml.safe_load(f)
-        return data["main-menu"][menu_name]
+
+        logging.info(f"Ищем меню: {menu_name}")
+        logging.info(f"Доступные меню: {list(data['main-menu'].keys())}")
+
+        if menu_name not in data["main-menu"]:
+            logging.error(f"Меню '{menu_name}' не найдено в YAML")
+            return {"text": f"Меню '{menu_name}' не найдено", "buttons": []}
+
+        menu_data = data["main-menu"][menu_name]
+        logging.info(f"Меню '{menu_name}' найдено: {menu_data}")
+        return menu_data
+
     except Exception as e:
         logging.error(f"Error loading menu {menu_name}: {e}")
-        return {"text": "Меню не найдено", "buttons": []}
-
+        return {"text": f"Ошибка загрузки меню: {e}", "buttons": []}
 
 async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str):
     """Показывает меню по имени из YAML"""
@@ -346,16 +520,17 @@ def register_handlers(app: Application):
 
     # Меню, которые обрабатываются отдельно (не регистрируем их здесь)
     excluded_menus = {
-        "practice_complete", "practice_reflection_good",
+        "daily_practice", "practice_complete", "practice_reflection_good",
         "practice_reflection_calm", "practice_reflection_anxious",
-        "change_time"
+        "practice_reflection_excited", "change_time"  # ДОБАВЛЕНО
     }
 
     data = data["main-menu"]
 
     for menu_name, menu_data in data.items():
         if menu_name in excluded_menus:
-            continue  # Пропускаем меню с собственной логикой
+            logging.info(f"Пропускаем регистрацию меню: {menu_name}")
+            continue
 
         text = menu_data.get("text", "")
         media = menu_data.get("media", [])
@@ -391,13 +566,16 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_change_time, pattern="^change_time$"))
     app.add_handler(CallbackQueryHandler(handle_time_selection, pattern="^set_time_"))
     app.add_handler(CallbackQueryHandler(handle_practice_completion, pattern="^practice_complete$"))
-    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
+    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))  # ИСПРАВЛЕНО
+    app.add_handler(CallbackQueryHandler(handle_restart_practices, pattern="^restart_practices$"))
+
+    # ДИНАМИЧЕСКАЯ практика дня - регистрируем отдельно
+    app.add_handler(CallbackQueryHandler(show_daily_practice, pattern="^daily_practice$"))
+    app.add_handler(CommandHandler("practice", show_daily_practice))
 
     # Регистрируем статичные меню из YAML
     register_handlers(app)
 
     app.run_polling()
-
-
 if __name__ == "__main__":
     main()

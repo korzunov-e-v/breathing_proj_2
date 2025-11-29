@@ -11,18 +11,13 @@ main-menu:
             - { text: "📈 Аналитика", goto: analytics }
             - { text: "⚙️ Настройки", goto: settings }
 
-    daily_practice:
-        text: "Практика дня будет здесь"
-        buttons:
-            - { text: "✅ Я сделал практику", goto: practice_complete }
-            - { text: "⬅️ Назад", goto: menu }
-
     practice_complete:
         text: "Отлично! Практика завершена. Как ваше состояние?"
         buttons:
-            - { text: "😊 Хорошо", goto: practice_reflection_good }
-            - { text: "😌 Спокойно", goto: practice_reflection_calm }
-            - { text: "😰 Тревожно", goto: practice_reflection_anxious }
+            - { text: "😊 Хорошо", goto: reflection_good }
+            - { text: "😌 Спокойно", goto: reflection_calm }
+            - { text: "😰 Тревожно", goto: reflection_anxious }
+            - { text: "🙀 Волнительно", goto: reflection_excited }
 
     practice_reflection_good:
         text: "Рад слышать! Продолжайте в том же духе."
@@ -36,6 +31,11 @@ main-menu:
 
     practice_reflection_anxious:
         text: "Спасибо за честность. Практика поможет снизить тревогу."
+        buttons:
+            - { text: "⬅️ В главное меню", goto: menu }
+
+    practice_reflection_excited:
+        text: "Энтузиазм - это прекрасно! Направьте эту энергию в практику."
         buttons:
             - { text: "⬅️ В главное меню", goto: menu }
 
