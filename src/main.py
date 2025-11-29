@@ -254,20 +254,20 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             context.user_data.pop('mood_before', None)
             context.user_data.pop('mood_after', None)
 
-            # Показываем outro_text если он есть, затем меню рефлексии
+            # Показываем outro_text если он есть
             if current_practice and current_practice.outro_text:
                 outro_text = f"""
 🎯 *Завершение практики*
 
 {current_practice.outro_text}
 
-Как вы себя чувствуете теперь?
+Спасибо за практику! 🧘
 """
                 await query.edit_message_text(outro_text, parse_mode='Markdown')
                 await asyncio.sleep(2)  # Даем время прочитать outro
 
-            # Показываем меню рефлексии из YAML
-            await show_menu_by_name(update, context, "practice_complete", delete=False)
+            # Показываем главное меню
+            await show_menu_by_name(update, context, "menu", delete=False)
         else:
             await query.edit_message_text("Пользователь не найден")
     except Exception as e:
@@ -275,7 +275,6 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         await query.edit_message_text("Произошла ошибка при завершении практики")
     finally:
         db.close()
-
 
 async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Спрашивает настроение после практики"""
@@ -700,9 +699,7 @@ def register_handlers(app: Application):
 
     # Меню, которые обрабатываются отдельно (не регистрируем их здесь)
     excluded_menus = {
-        "daily_practice", "practice_complete", "practice_reflection_good",
-        "practice_reflection_calm", "practice_reflection_anxious",
-        "practice_reflection_excited", "change_time"
+        "daily_practice", "change_time"  # УДАЛИТЬ все practice_reflection_*
     }
 
     data = data["main-menu"]
@@ -747,7 +744,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_time_selection, pattern="^set_time_"))
     app.add_handler(CallbackQueryHandler(handle_practice_completion, pattern="^practice_complete$"))
     app.add_handler(CallbackQueryHandler(ask_mood_after_practice, pattern="^ask_mood_after$"))
-    app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
+    # УДАЛИТЬ: app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
     app.add_handler(CallbackQueryHandler(handle_restart_practices, pattern="^restart_practices$"))
 
     # Обработчики для настроений
@@ -761,6 +758,7 @@ def main():
     register_handlers(app)
 
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

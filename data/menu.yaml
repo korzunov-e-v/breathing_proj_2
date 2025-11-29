@@ -11,34 +11,6 @@ main-menu:
             - { text: "📈 Аналитика", goto: analytics }
             - { text: "⚙️ Настройки", goto: settings }
 
-    practice_complete:
-        text: "Как ваше состояние после практики?"
-        buttons:
-            - { text: "😊 Хорошо", goto: "reflection_good" }
-            - { text: "😌 Спокойно", goto: "reflection_calm" }
-            - { text: "😰 Тревожно", goto: "reflection_anxious" }
-            - { text: "🙀 Волнительно", goto: "reflection_excited" }
-
-    reflection_good:
-        text: "Рад слышать! Продолжайте в том же духе."
-        buttons:
-            - { text: "⬅️ В главное меню", goto: "menu" }
-
-    reflection_calm:
-        text: "Прекрасно. Спокойствие - это сила."
-        buttons:
-            - { text: "⬅️ В главное меню", goto: "menu" }
-
-    reflection_anxious:
-        text: "Спасибо за честность. Практика поможет снизить тревогу."
-        buttons:
-            - { text: "⬅️ В главное меню", goto: "menu" }
-
-    reflection_excited:
-        text: "Энтузиазм - это прекрасно! Направьте эту энергию в практику."
-        buttons:
-            - { text: "⬅️ В главное меню", goto: "menu" }
-
     library:
         text: "📚 *Библиотека знаний*"
         buttons:
