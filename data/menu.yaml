@@ -12,32 +12,32 @@ main-menu:
             - { text: "⚙️ Настройки", goto: settings }
 
     practice_complete:
-        text: "Отлично! Практика завершена. Как ваше состояние?"
+        text: "Как ваше состояние после практики?"
         buttons:
-            - { text: "😊 Хорошо", goto: reflection_good }
-            - { text: "😌 Спокойно", goto: reflection_calm }
-            - { text: "😰 Тревожно", goto: reflection_anxious }
-            - { text: "🙀 Волнительно", goto: reflection_excited }
+            - { text: "😊 Хорошо", goto: "reflection_good" }
+            - { text: "😌 Спокойно", goto: "reflection_calm" }
+            - { text: "😰 Тревожно", goto: "reflection_anxious" }
+            - { text: "🙀 Волнительно", goto: "reflection_excited" }
 
-    practice_reflection_good:
+    reflection_good:
         text: "Рад слышать! Продолжайте в том же духе."
         buttons:
-            - { text: "⬅️ В главное меню", goto: menu }
+            - { text: "⬅️ В главное меню", goto: "menu" }
 
-    practice_reflection_calm:
+    reflection_calm:
         text: "Прекрасно. Спокойствие - это сила."
         buttons:
-            - { text: "⬅️ В главное меню", goto: menu }
+            - { text: "⬅️ В главное меню", goto: "menu" }
 
-    practice_reflection_anxious:
+    reflection_anxious:
         text: "Спасибо за честность. Практика поможет снизить тревогу."
         buttons:
-            - { text: "⬅️ В главное меню", goto: menu }
+            - { text: "⬅️ В главное меню", goto: "menu" }
 
-    practice_reflection_excited:
+    reflection_excited:
         text: "Энтузиазм - это прекрасно! Направьте эту энергию в практику."
         buttons:
-            - { text: "⬅️ В главное меню", goto: menu }
+            - { text: "⬅️ В главное меню", goto: "menu" }
 
     library:
         text: "📚 *Библиотека знаний*"

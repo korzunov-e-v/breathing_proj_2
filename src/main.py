@@ -32,10 +32,15 @@ async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(f'Photo file_id: <code>{file_id}</code>', parse_mode='HTML')
     elif msg.video:
         file_id = msg.video.file_id
-        await msg.reply_text(f"Video file_id: <code>{file_id}<code>", parse_mode="HTML")
+        await msg.reply_text(f"Video file_id: <code>{file_id}</code>", parse_mode="HTML")
+    elif msg.audio:
+        file_id = msg.audio.file_id
+        await msg.reply_text(f"Audio file_id: <code>{file_id}</code>", parse_mode="HTML")
+    elif msg.document:
+        file_id = msg.document.file_id
+        await msg.reply_text(f"Document file_id: <code>{file_id}</code>", parse_mode="HTML")
     else:
-        await msg.reply_text("Пришлите фото или видео.")
-
+        await msg.reply_text("Пришлите фото, видео, аудио или документ.")
 
 async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
     """Удаляет старые сообщения меню если они сохранены."""
@@ -134,6 +139,9 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
     try:
         user = db.query(User).filter(User.tg_id == user_id).first()
         if user:
+            # Получаем практику для текущего дня (до увеличения дня)
+            current_practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+
             # Создаем запись в логе практик
             practice_log = PracticeLog(
                 user_id=user.id,
@@ -155,24 +163,35 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
 
             db.commit()
 
+            # Показываем outro_text если он есть, затем меню рефлексии
+            if current_practice and current_practice.outro_text:
+                outro_text = f"""
+🎯 *Завершение практики*
+
+{current_practice.outro_text}
+
+Как вы себя чувствуете теперь?
+"""
+                await query.edit_message_text(outro_text, parse_mode='Markdown')
+                await asyncio.sleep(2)  # Даем время прочитать outro
+
             # Показываем меню рефлексии из YAML
-            await show_menu_by_name(update, context, "practice_complete")
+            await show_menu_by_name(update, context, "practice_complete", delete=False)
         else:
             await query.edit_message_text("Пользователь не найден")
     finally:
         db.close()
-
 
 async def handle_reflection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик рефлексии после практики"""
     query = update.callback_query
     await query.answer()
 
-    reflection_type = query.data.replace("practice_reflection_", "")
+    reflection_type = query.data.replace("reflection_", "")
     logging.info(f"Обработчик рефлексии: {reflection_type}")
 
     # Получаем соответствующее меню из YAML
-    menu_name = f"practice_{reflection_type}"
+    menu_name = f"reflection_{reflection_type}"
     logging.info(f"Пытаемся загрузить меню: {menu_name}")
 
     try:
@@ -499,14 +518,15 @@ def get_menu_data(menu_name: str) -> dict:
         logging.error(f"Error loading menu {menu_name}: {e}")
         return {"text": f"Ошибка загрузки меню: {e}", "buttons": []}
 
-async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str):
+async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str, delete=False):
     """Показывает меню по имени из YAML"""
     menu_data = get_menu_data(menu_name)
     await send_menu(
         update, context,
         media=menu_data.get("media", []),
         text=menu_data.get("text", ""),
-        buttons=menu_data.get("buttons", [])
+        buttons=menu_data.get("buttons", []),
+        delete=delete,
     )
 
 
@@ -560,7 +580,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, receive_media))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
 
     # Обработчики для динамических меню
     app.add_handler(CallbackQueryHandler(handle_change_time, pattern="^change_time$"))
