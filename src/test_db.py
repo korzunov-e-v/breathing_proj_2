@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from src.database import get_db, create_tables
+
+from src.database import create_tables, get_db
 from src.models import User
 
 

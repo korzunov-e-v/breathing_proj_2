@@ -1,19 +1,16 @@
 from flask import Flask
 from flask_admin import Admin
-from admin.views import (
-    PracticeLogView, PhraseView, AchievementView, UserAchievementView, SubscriptionView
-)
-from src.database import SessionLocal
-from src.models import (
-    User, Practice, Mood, Article,
-    Music, Favorite, NotificationLog, Emotion, PracticeLog, Phrase, Achievement, UserAchievement, Subscription
-)
 
 # admin/admin_app.py
-from admin.views import (
-    UserView, PracticeView, MoodView, ArticleView,
-    MusicView, FavoriteView, NotificationLogView, EmotionView  # Добавили EmotionView
-)
+from admin.views import (AchievementView, ArticleView,  # Добавили EmotionView
+                         EmotionView, FavoriteView, MoodView, MusicView,
+                         NotificationLogView, PhraseView, PracticeLogView,
+                         PracticeView, SubscriptionView, UserAchievementView,
+                         UserView)
+from src.database import SessionLocal
+from src.models import (Achievement, Article, Emotion, Favorite, Mood, Music,
+                        NotificationLog, Phrase, Practice, PracticeLog,
+                        Subscription, User, UserAchievement)
 
 
 def create_admin_app():

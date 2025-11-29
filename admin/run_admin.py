@@ -1,5 +1,6 @@
+from flask import redirect, render_template_string, request, session
+
 from admin.admin_app import create_admin_app
-from flask import request, session, redirect, render_template_string
 
 app = create_admin_app()
 

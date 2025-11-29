@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from alembic.config import Config
-from alembic import command
 
+from alembic import command
+from alembic.config import Config
 from src.settings import settings
 
 # Получаем параметры подключения из переменных окружения

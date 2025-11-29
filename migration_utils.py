@@ -1,8 +1,10 @@
 # migration_utils.py
 import os
 import sys
-from alembic.config import Config
+
 from alembic import command
+from alembic.config import Config
+
 
 def run_migrations():
     """Запустить миграции"""

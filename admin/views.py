@@ -1,5 +1,5 @@
+from flask import redirect, request, session, url_for
 from flask_admin.contrib.sqla import ModelView
-from flask import redirect, request, url_for, session
 from wtforms import TextAreaField
 from wtforms.widgets import TextArea
 

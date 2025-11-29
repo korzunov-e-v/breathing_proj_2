@@ -1,36 +1,29 @@
+import asyncio
 import logging
+
 import yaml
 from sqlalchemy import func
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      InputMediaPhoto, InputMediaVideo, Update)
+from telegram.ext import (Application, ApplicationBuilder,
+                          CallbackQueryHandler, CommandHandler, ContextTypes,
+                          MessageHandler, filters)
 
-from telegram import (
-    Update,
-    InputMediaPhoto,
-    InputMediaVideo,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    Application, MessageHandler, filters
-)
-
-from src.database import create_tables
+from src.database import SessionLocal, create_tables
+from src.models import PracticeLog, User
 from src.settings import settings
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-
-# ------------------------------------------------------------
-#  У Т И Л И Т Ы
-# ------------------------------------------------------------
-
-async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if msg.photo:
-        # Берем самый большой размер
-        file_id = msg.photo[-1].file_id
+        file_id = msg.photo[-1].file_id  # Берем самый большой размер
         await msg.reply_text(f'Photo file_id: <code>{file_id}</code>', parse_mode='HTML')
     elif msg.video:
         file_id = msg.video.file_id
@@ -61,22 +54,9 @@ async def delete_old_messages(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-from src.database import SessionLocal
-from src.models import User
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-import asyncio
-
-
-
-
-from src.models import PracticeLog
-
-
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    chat_id = update.effective_chat.id
+    _chat_id = update.effective_chat.id
 
     # Сохраняем/обновляем пользователя в БД
     db = SessionLocal()
@@ -111,6 +91,11 @@ async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TY
     time_str = query.data.replace("set_time_", "")
     user_id = query.from_user.id
 
+    keyboard = [
+        [InlineKeyboardButton("📋 В главное меню", callback_data="menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     # Сохраняем время в БД
     db = SessionLocal()
     try:
@@ -121,10 +106,12 @@ async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
             # Показываем главное меню из YAML после настройки
             await query.edit_message_text(
-                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\nТеперь я буду напоминать вам о практике в это время каждый день.",
-                parse_mode='Markdown'
+                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
+                f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
+                f"Когда будете готовы начать - нажмите кнопку ниже:",
+                parse_mode='Markdown',
+                reply_markup=reply_markup
             )
-            await show_menu_by_name(update, context, "menu")
         else:
             await query.edit_message_text("Пользователь не найден. Начните с /start")
     finally:
@@ -265,9 +252,10 @@ async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, us
     )
 
 
-
-async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
-                    media, text, buttons):
+async def send_menu(
+    update: Update, context: ContextTypes.DEFAULT_TYPE,
+    media, text, buttons
+):
 
     chat_id = update.effective_chat.id
 
@@ -336,6 +324,7 @@ def get_menu_data(menu_name: str) -> dict:
         logging.error(f"Error loading menu {menu_name}: {e}")
         return {"text": "Меню не найдено", "buttons": []}
 
+
 async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str):
     """Показывает меню по имени из YAML"""
     menu_data = get_menu_data(menu_name)
@@ -345,6 +334,7 @@ async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         text=menu_data.get("text", ""),
         buttons=menu_data.get("buttons", [])
     )
+
 
 def register_handlers(app: Application):
     """Регистрирует только статичные меню из YAML, исключая динамические"""
@@ -379,6 +369,7 @@ def register_handlers(app: Application):
                     text=text_,
                     buttons=buttons_
                 )
+
             return handler
 
         # Регистрируем команду и callback

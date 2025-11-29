@@ -1,17 +1,11 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    ForeignKey,
-    Enum,
-)
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from src.database import Base
 import enum
+
+from sqlalchemy import (Boolean, Column, DateTime, Enum, ForeignKey, Integer,
+                        String, Text)
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from src.database import Base
 
 
 class FavoriteItemType(enum.Enum):
@@ -32,7 +26,7 @@ class Mood(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text)
-    icon = Column(String(255))  # опционально
+    icon = Column(String(255))
 
     practices = relationship("Practice", back_populates="mood")
 
@@ -51,7 +45,7 @@ class User(Base):
     username = Column(String(500))
 
     timezone = Column(String(50))
-    practice_time = Column(String(5))  # "HH:MM"
+    practice_time = Column(String(5))
     subscribed = Column(Boolean, default=False)
     current_day = Column(Integer, default=1)
     streak = Column(Integer, default=0)
@@ -61,24 +55,20 @@ class User(Base):
     last_emotion_notification_at = Column(DateTime(timezone=True))
 
     notification_paused = Column(Boolean, default=False)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    emotions = relationship("Emotion", back_populates="user")
-    favorites = relationship("Favorite", back_populates="user")
-    logs = relationship("NotificationLog", back_populates="user")
-
-    # Новые поля
     total_practice_minutes = Column(Integer, default=0)
     reminder_count_today = Column(Integer, default=0)
     last_reminder_sent_at = Column(DateTime(timezone=True))
     freeze_reminders = Column(Boolean, default=False)
 
-    # Связи с новыми таблицами
-    practice_logs = relationship("PracticeLog")
-    achievements = relationship("UserAchievement")
-    subscriptions = relationship("Subscription")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Отношения
+    emotions = relationship("Emotion", back_populates="user")
+    favorites = relationship("Favorite", back_populates="user")
+    logs = relationship("NotificationLog", back_populates="user")
+    practice_logs = relationship("PracticeLog", back_populates="user")
+    achievements = relationship("UserAchievement", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
 
     def __repr__(self):
         return f"User(id={self.id}, tg_id={self.tg_id}, username='{self.username}')"
@@ -92,15 +82,14 @@ class Practice(Base):
 
     id = Column(Integer, primary_key=True)
     day_number = Column(Integer, index=True, nullable=False)
-
     mood_id = Column(Integer, ForeignKey("moods.id"), nullable=False)
-    mood = relationship("Mood", back_populates="practices")
-
     audio_file_id = Column(String(500))
     intro_text = Column(Text)
     outro_text = Column(Text)
-
     premium = Column(Boolean, default=False)
+
+    mood = relationship("Mood", back_populates="practices")
+    practice_logs = relationship("PracticeLog", back_populates="practice")
 
     def __repr__(self):
         return f"Practice(id={self.id}, day={self.day_number}, mood_id={self.mood_id})"
@@ -117,19 +106,16 @@ class PracticeLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     practice_id = Column(Integer, ForeignKey("practices.id"), nullable=False)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
-    mood_before = Column(String(100))  # настроение до практики
-    mood_after = Column(String(100))  # настроение после практики
-    feedback_rating = Column(Integer)  # 1-5 звезд
-    feedback_comment = Column(Text)  # текстовый отзыв
-
-    user = relationship("User")
-    practice = relationship("Practice")
-    # Новые поля
+    mood_before = Column(String(100))
+    mood_after = Column(String(100))
+    feedback_rating = Column(Integer)
+    feedback_comment = Column(Text)
     duration_minutes = Column(Integer, default=5)
-    practice_type = Column(String(100))  # 'basic', 'advanced', 'kundalini', etc.
+    practice_type = Column(String(100))
 
-    # Связи
-    practice_logs = relationship("PracticeLog")
+    user = relationship("User", back_populates="practice_logs")
+    practice = relationship("Practice", back_populates="practice_logs")
+
     def __repr__(self):
         return f"PracticeLog(user_id={self.user_id}, practice_id={self.practice_id})"
 
@@ -142,8 +128,8 @@ class Phrase(Base):
 
     id = Column(Integer, primary_key=True)
     text = Column(Text, nullable=False)
-    category = Column(String(100))  # 'discipline', 'breathing', 'stress', 'attention', 'body', 'exhalation_cycle'
-    for_premium = Column(Boolean, default=False)  # только для премиум?
+    category = Column(String(100))
+    for_premium = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"Phrase(id={self.id}, category='{self.category}')"
@@ -159,8 +145,10 @@ class Achievement(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     icon = Column(String(255))
-    condition_type = Column(String(100))  # 'streak', 'practice_count', 'emotion_count', etc.
+    condition_type = Column(String(100))
     condition_value = Column(Integer)
+
+    user_achievements = relationship("UserAchievement", back_populates="achievement")
 
     def __repr__(self):
         return f"Achievement(id={self.id}, name='{self.name}')"
@@ -177,8 +165,8 @@ class UserAchievement(Base):
     achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False)
     unlocked_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User")
-    achievement = relationship("Achievement")
+    user = relationship("User", back_populates="achievements")
+    achievement = relationship("Achievement", back_populates="user_achievements")
 
     def __repr__(self):
         return f"UserAchievement(user_id={self.user_id}, achievement_id={self.achievement_id})"
@@ -192,12 +180,12 @@ class Subscription(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    plan_type = Column(String(50))  # 'basic', 'premium'
+    plan_type = Column(String(50))
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True))
     is_active = Column(Boolean, default=True)
 
-    user = relationship("User")
+    user = relationship("User", back_populates="subscriptions")
 
     def __repr__(self):
         return f"Subscription(user_id={self.user_id}, plan='{self.plan_type}')"
