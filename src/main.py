@@ -56,6 +56,18 @@ async def get_moods_keyboard():
         db.close()
 
 
+async def get_rating_keyboard():
+    """Создает клавиатуру для оценки 1-10"""
+    keyboard = []
+    # Первый ряд: 1-5
+    row1 = [InlineKeyboardButton(str(i), callback_data=f"rating_{i}") for i in range(1, 6)]
+    # Второй ряд: 6-10
+    row2 = [InlineKeyboardButton(str(i), callback_data=f"rating_{i}") for i in range(6, 11)]
+    keyboard.append(row1)
+    keyboard.append(row2)
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик выбора настроения"""
     query = update.callback_query
@@ -85,7 +97,8 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             # Это настроение после практики
             context.user_data['mood_after'] = mood.name
-            await handle_practice_completion(update, context)
+            # Переходим к запросу рейтинга
+            await ask_feedback_rating(update, context)
 
     except Exception as e:
         logging.error(f"Ошибка в handle_mood_selection: {e}")
@@ -215,12 +228,98 @@ async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TY
         db.close()
 
 
-async def handle_practice_completion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик завершения практики"""
+async def ask_feedback_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запрашивает оценку практики"""
     query = update.callback_query
     await query.answer()
 
-    user_id = query.from_user.id
+    rating_keyboard = await get_rating_keyboard()
+    await query.edit_message_text(
+        "📊 *Оцените практику*\n\n"
+        "Насколько полезна была для вас эта практика?\n"
+        "Оцените от 1 до 10, где 1 - совсем не понравилось, 10 - очень понравилось:",
+        reply_markup=rating_keyboard,
+        parse_mode='Markdown'
+    )
+
+
+async def handle_rating_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик выбора рейтинга"""
+    query = update.callback_query
+    await query.answer()
+
+    rating = int(query.data.replace("rating_", ""))
+    context.user_data['feedback_rating'] = rating
+
+    # Переходим к запросу комментария
+    await ask_feedback_comment(update, context)
+
+
+async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запрашивает комментарий к практике"""
+    query = update.callback_query
+    await query.answer()
+
+    # Сохраняем состояние ожидания комментария
+    context.user_data['waiting_for_comment'] = True
+
+    keyboard = [
+        [InlineKeyboardButton("🚫 Пропустить комментарий", callback_data="skip_comment")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        "💬 *Комментарий к практике*\n\n"
+        "Хотите ли вы оставить комментарий или отзыв о практике?\n"
+        "Это поможет нам стать лучше!",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+
+
+async def handle_comment_skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик пропуска комментария"""
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['feedback_comment'] = None
+    context.user_data.pop('waiting_for_comment', None)
+
+    # Завершаем практику
+    await handle_practice_completion(update, context)
+
+
+async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик текстового комментария"""
+    if not context.user_data.get('waiting_for_comment'):
+        return
+
+    comment = update.message.text
+    context.user_data['feedback_comment'] = comment
+    context.user_data.pop('waiting_for_comment', None)
+
+    # Удаляем сообщение с запросом комментария если возможно
+    try:
+        await context.bot.delete_message(update.effective_chat.id, update.message.message_id - 1)
+    except:
+        pass
+
+    # Завершаем практику
+    await handle_practice_completion(update, context)
+
+
+async def handle_practice_completion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик завершения практики"""
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Определяем, откуда брать сообщение для редактирования
+    if update.callback_query:
+        query = update.callback_query
+        message_func = query.edit_message_text
+    else:
+        query = None
+        message_func = lambda text, **kwargs: context.bot.send_message(chat_id, text, **kwargs)
 
     db = SessionLocal()
     try:
@@ -235,7 +334,9 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 practice_id=user.current_day,
                 completed_at=func.now(),
                 mood_before=context.user_data.get('mood_before'),
-                mood_after=context.user_data.get('mood_after')
+                mood_after=context.user_data.get('mood_after'),
+                feedback_rating=context.user_data.get('feedback_rating'),
+                feedback_comment=context.user_data.get('feedback_comment')
             )
             db.add(practice_log)
 
@@ -250,31 +351,42 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
 
             db.commit()
 
-            # Очищаем временные данные настроений
+            # Показываем outro_text если он есть
+            completion_text = ""
+            if current_practice and current_practice.outro_text:
+                completion_text = f"🎯 *Завершение практики*\n\n{current_practice.outro_text}\n\n"
+
+            # Добавляем благодарность за фидбек
+            rating = context.user_data.get('feedback_rating')
+            if rating:
+                completion_text += f"Спасибо за оценку *{rating}/10*! "
+            if context.user_data.get('feedback_comment'):
+                completion_text += "И за ваш комментарий! "
+
+            completion_text += "🧘\n\nПрактика завершена!"
+
+            # Очищаем временные данные
             context.user_data.pop('mood_before', None)
             context.user_data.pop('mood_after', None)
+            context.user_data.pop('feedback_rating', None)
+            context.user_data.pop('feedback_comment', None)
+            context.user_data.pop('waiting_for_comment', None)
 
-            # Показываем outro_text если он есть
-            if current_practice and current_practice.outro_text:
-                outro_text = f"""
-🎯 *Завершение практики*
-
-{current_practice.outro_text}
-
-Спасибо за практику! 🧘
-"""
-                await query.edit_message_text(outro_text, parse_mode='Markdown')
-                await asyncio.sleep(2)  # Даем время прочитать outro
+            if query:
+                await query.edit_message_text(completion_text, parse_mode='Markdown')
+            else:
+                await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown')
 
             # Показываем главное меню
             await show_menu_by_name(update, context, "menu", delete=False)
         else:
-            await query.edit_message_text("Пользователь не найден")
+            await message_func("Пользователь не найден")
     except Exception as e:
         logging.error(f"Ошибка в handle_practice_completion: {e}")
-        await query.edit_message_text("Произошла ошибка при завершении практики")
+        await message_func("Произошла ошибка при завершении практики")
     finally:
         db.close()
+
 
 async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Спрашивает настроение после практики"""
@@ -287,25 +399,6 @@ async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=mood_keyboard,
         parse_mode='Markdown'
     )
-
-
-async def handle_reflection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик рефлексии после практики"""
-    query = update.callback_query
-    await query.answer()
-
-    reflection_type = query.data.replace("reflection_", "")
-    logging.info(f"Обработчик рефлексии: {reflection_type}")
-
-    # Получаем соответствующее меню из YAML
-    menu_name = f"reflection_{reflection_type}"
-    logging.info(f"Пытаемся загрузить меню: {menu_name}")
-
-    try:
-        await show_menu_by_name(update, context, menu_name)
-    except Exception as e:
-        logging.error(f"Ошибка при загрузке меню {menu_name}: {e}")
-        await query.edit_message_text(f"Ошибка: меню '{menu_name}' не найдено")
 
 
 async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -436,72 +529,6 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.edit_message_text(error_text)
         else:
             await context.bot.send_message(chat_id, error_text)
-    finally:
-        db.close()
-
-
-async def show_practice_after_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает практику после выбора настроения"""
-    query = update.callback_query
-    await query.answer()
-
-    user_id = update.effective_user.id
-    db = SessionLocal()
-
-    try:
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if not user:
-            await query.edit_message_text("Пользователь не найден")
-            return
-
-        practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
-        if not practice:
-            await query.edit_message_text("Практика не найдена")
-            return
-
-        # Показываем практику дня
-        text = f"""
-🧘 *Практика дня {user.current_day}*
-
-{practice.intro_text}
-
-Длительность: ~5 минут
-
-Готовы начать?
-"""
-
-        # Если есть аудио - отправляем его
-        if practice.audio_file_id:
-            try:
-                await context.bot.send_audio(
-                    chat_id=query.message.chat_id,
-                    audio=practice.audio_file_id,
-                    caption="🎧 Аудио для практики"
-                )
-            except Exception as e:
-                logging.error(f"Ошибка отправки аудио: {e}")
-
-        # Удаляем сообщение с выбором настроения
-        mood_message_id = context.user_data.get('mood_message_id')
-        if mood_message_id:
-            try:
-                await context.bot.delete_message(query.message.chat_id, mood_message_id)
-            except:
-                pass
-
-        # Показываем практику и кнопку завершения
-        await query.edit_message_text(text, parse_mode='Markdown')
-
-        buttons = [
-            {"text": "✅ Я сделал практику", "goto": "ask_mood_after"},
-            {"text": "⬅️ Главное меню", "goto": "menu"}
-        ]
-
-        await send_menu(update, context, [], "Отметьте завершение практики:", buttons, delete=False)
-
-    except Exception as e:
-        logging.error(f"Ошибка в show_practice_after_mood: {e}")
-        await query.edit_message_text("Произошла ошибка при загрузке практики")
     finally:
         db.close()
 
@@ -699,7 +726,7 @@ def register_handlers(app: Application):
 
     # Меню, которые обрабатываются отдельно (не регистрируем их здесь)
     excluded_menus = {
-        "daily_practice", "change_time"  # УДАЛИТЬ все practice_reflection_*
+        "daily_practice", "change_time"
     }
 
     data = data["main-menu"]
@@ -744,11 +771,16 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_time_selection, pattern="^set_time_"))
     app.add_handler(CallbackQueryHandler(handle_practice_completion, pattern="^practice_complete$"))
     app.add_handler(CallbackQueryHandler(ask_mood_after_practice, pattern="^ask_mood_after$"))
-    # УДАЛИТЬ: app.add_handler(CallbackQueryHandler(handle_reflection, pattern="^reflection_"))
     app.add_handler(CallbackQueryHandler(handle_restart_practices, pattern="^restart_practices$"))
 
     # Обработчики для настроений
     app.add_handler(CallbackQueryHandler(handle_mood_selection, pattern="^mood_"))
+
+    # Новые обработчики для фидбека
+    app.add_handler(CallbackQueryHandler(handle_rating_selection, pattern="^rating_"))
+    app.add_handler(CallbackQueryHandler(ask_feedback_rating, pattern="^ask_feedback_rating$"))
+    app.add_handler(CallbackQueryHandler(handle_comment_skip, pattern="^skip_comment$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text))
 
     # ДИНАМИЧЕСКАЯ практика дня - регистрируем отдельно
     app.add_handler(CallbackQueryHandler(show_daily_practice, pattern="^daily_practice$"))
