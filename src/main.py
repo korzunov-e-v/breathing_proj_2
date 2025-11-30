@@ -74,25 +74,25 @@ async def log_interaction(update: Update, interaction_type: str, additional_info
     logging.info(log_message)
 
 
-async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик медиа-файлов с логированием"""
+async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик медиа-файлов с логированием и возвратом file_id"""
     await log_interaction(update, "MEDIA_RECEIVED")
 
     msg = update.message
     if msg.photo:
         file_id = msg.photo[-1].file_id
-        await msg.reply_text(f'Photo file_id: <code>{file_id}</code>', parse_mode='HTML')
+        await msg.reply_text(f'Photo file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML', parse_mode='HTML')
     elif msg.video:
         file_id = msg.video.file_id
-        await msg.reply_text(f"Video file_id: <code>{file_id}</code>", parse_mode="HTML")
+        await msg.reply_text(f"Video file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML", parse_mode="HTML")
     elif msg.audio:
         file_id = msg.audio.file_id
-        await msg.reply_text(f"Audio file_id: <code>{file_id}</code>", parse_mode="HTML")
+        await msg.reply_text(f"Audio file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML", parse_mode="HTML")
     elif msg.document:
         file_id = msg.document.file_id
-        await msg.reply_text(f"Document file_id: <code>{file_id}</code>", parse_mode="HTML")
+        await msg.reply_text(f"Document file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML", parse_mode="HTML")
     else:
-        await msg.reply_text("Пришлите фото, видео, аудио или документ.")
+        await msg.reply_text("Пришлите фото, видео, аудио или документ, чтобы получить их file_id для использования в меню.")
 
 
 async def get_moods_keyboard():
@@ -173,14 +173,25 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             await context.bot.send_message(chat_id, "Пользователь не найден")
             return
 
-        practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+        # Определяем, какую практику показывать
+        if context.user_data.get('selected_practice_id'):
+            # Если есть выбранная практика (из повторных или библиотеки), используем ее
+            practice = db.query(Practice).filter(Practice.id == context.user_data['selected_practice_id']).first()
+            practice_day = practice.day_number if practice else None
+            practice_source = "повторения"
+        else:
+            # Иначе показываем практику текущего дня
+            practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+            practice_day = user.current_day
+            practice_source = "дня"
+
         if not practice:
             await context.bot.send_message(chat_id, "Практика не найдена")
             return
 
-        # Показываем практику дня
+        # Показываем практику
         text = f"""
-🧘 *Практика дня {user.current_day}*
+🧘 *Практика {practice_source} {practice_day}*
 
 {practice.intro_text}
 
@@ -209,7 +220,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             {"text": "⬅️ Главное меню", "goto": "menu"}
         ]
 
-        await send_menu(update, context, [], "Отметьте завершение практики:", buttons, delete=False)
+        await send_text_with_buttons(update, context, "Отметьте завершение практики:", buttons)
 
     except Exception as e:
         logging.error(f"Ошибка в show_practice_content: {e}")
@@ -476,7 +487,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown')
 
             # Показываем главное меню
-            await show_menu_by_name(update, context, "menu", delete=False)
+            await show_menu_by_name(update, context, "menu")
         else:
             await message_func("Пользователь не найден")
     except Exception as e:
@@ -532,7 +543,6 @@ async def send_message_with_menu(
     query=None,
     chat_id=None,
     menu_text: str = "Выберите действие:",
-    delete: bool = True
 ):
     """Helper function to send a message with menu buttons in ONE message"""
     if query:
@@ -597,7 +607,7 @@ async def send_text_with_buttons(
 
 
 async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает практику дня - доступна только один раз в день"""
+    """Показывает практику дня - доступна только одна в день и только по порядку"""
     await log_interaction(update, "DAILY_PRACTICE_REQUESTED")
 
     query = update.callback_query
@@ -616,7 +626,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
             return
 
-        # Проверяем, выполнял ли пользователь практику сегодня
+        # Проверяем, выполнял ли пользователь практику СЕГОДНЯ
         today = func.date(func.now())
         today_practice = db.query(PracticeLog).filter(
             PracticeLog.user_id == user.id,
@@ -630,9 +640,9 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             text = f"""
 ✅ *Вы уже выполнили практику сегодня*
 
-🧘 Сегодня вы прошли: {practice.intro_text if practice else 'практику'}
+🧘 Сегодня вы прошли: День {practice.day_number if practice else '?'} - {practice.intro_text[:100] + '...' if practice and practice.intro_text else 'практику'}
 
-Вы можете повторить любую практику через меню "🔄 Пройти снова"
+Вы можете повторить пройденные практики через меню "🔄 Пройти снова"
 """
             buttons = [
                 {"text": "🔄 Пройти снова", "goto": "practice_again"},
@@ -640,15 +650,14 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
 
-            # Используем новую функцию - все в одном сообщении
             await send_text_with_buttons(update, context, text, buttons, query, chat_id)
             return
 
-        # Находим практику для текущего дня пользователя
+        # Находим практику для ТЕКУЩЕГО дня пользователя
         practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
 
         if not practice:
-            # Если практики нет - показываем сообщение о завершении
+            # Если практики нет - пользователь прошел все
             text = """
 🎉 *Поздравляем!*
 
@@ -670,33 +679,33 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             text = f"""
 🔒 *Премиум контент*
 
-Эта практика доступна только для подписчиков.
+Практика дня {user.current_day} доступна только для подписчиков.
 
-День {user.current_day}: {practice.intro_text}
+{practice.intro_text}
 """
 
             buttons = [
                 {"text": "💳 Выбрать подписку", "goto": "subscription_offer"},
-                {"text": "🔄 Пройти другую практику", "goto": "practice_again"},
+                {"text": "🔄 Повторить пройденные", "goto": "practice_again"},
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
 
             await send_text_with_buttons(update, context, text, buttons, query, chat_id)
             return
 
-        # Спрашиваем настроение перед практикой
+        # ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - показываем практику
         mood_keyboard = await get_moods_keyboard()
 
         if query:
             await query.edit_message_text(
-                "🧘 *Практика дня*\n\nКакое у вас сейчас настроение?",
+                f"🧘 *Практика дня {user.current_day}*\n\nКакое у вас сейчас настроение?",
                 reply_markup=mood_keyboard,
                 parse_mode='Markdown'
             )
         else:
             mood_message = await context.bot.send_message(
                 chat_id=chat_id,
-                text="🧘 *Практика дня*\n\nКакое у вас сейчас настроение?",
+                text=f"🧘 *Практика дня {user.current_day}*\n\nКакое у вас сейчас настроение?",
                 reply_markup=mood_keyboard,
                 parse_mode='Markdown'
             )
@@ -712,9 +721,8 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
     finally:
         db.close()
 
-
 async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает меню для повторного прохождения практик"""
+    """Показывает меню для повторного прохождения ТОЛЬКО ПРОЙДЕННЫХ практик"""
     await log_interaction(update, "PRACTICE_AGAIN_REQUESTED")
 
     query = update.callback_query
@@ -733,14 +741,32 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
             return
 
-        # Получаем все практики
-        practices = db.query(Practice).order_by(Practice.day_number).all()
-
-        # Получаем историю выполненных практик пользователя
+        # Получаем ID всех пройденных пользователем практик
         completed_practices = db.query(PracticeLog.practice_id).filter(
             PracticeLog.user_id == user.id
-        ).all()
+        ).distinct().all()
         completed_ids = [p[0] for p in completed_practices]
+
+        if not completed_ids:
+            # Если нет пройденных практик
+            text = """
+🔄 *Повторить практики*
+
+У вас пока нет пройденных практик для повторения.
+
+Сначала пройдите практику дня!
+"""
+            buttons = [
+                {"text": "🧘 Практика дня", "goto": "daily_practice"},
+                {"text": "⬅️ Главное меню", "goto": "menu"}
+            ]
+            await send_text_with_buttons(update, context, text, buttons, query, chat_id)
+            return
+
+        # Получаем только пройденные практики
+        practices = db.query(Practice).filter(
+            Practice.id.in_(completed_ids)
+        ).order_by(Practice.day_number).all()
 
         text = """
 🔄 *Повторить практики*
@@ -748,11 +774,10 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
 Выберите практику для повторного прохождения:
 """
 
-        # Создаем клавиатуру с практиками
+        # Создаем клавиатуру только с пройденными практиками
         keyboard = []
         for practice in practices:
-            status = "✅" if practice.id in completed_ids else "🔹"
-            button_text = f"{status} День {practice.day_number}"
+            button_text = f"✅ День {practice.day_number}"
             if practice.premium and not user.subscribed:
                 button_text += " 🔒"
 
@@ -787,7 +812,6 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_message(chat_id, error_text)
     finally:
         db.close()
-
 async def handle_repeat_practice_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик выбора практики для повторного прохождения"""
     query = update.callback_query
@@ -833,105 +857,6 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
         db.close()
 
 
-async def show_practice_library(update: Update, context: ContextTypes.DEFAULT_TYPE, query, chat_id, user):
-    """Показывает библиотеку практик когда пользователь прошел все или выбирает день"""
-    db = SessionLocal()
-    try:
-        # Получаем все доступные практики
-        practices = db.query(Practice).order_by(Practice.day_number).all()
-
-        # Получаем историю выполненных практик пользователя
-        completed_practices = db.query(PracticeLog.practice_id).filter(
-            PracticeLog.user_id == user.id
-        ).all()
-        completed_ids = [p[0] for p in completed_practices]
-
-        text = """
-📚 *Библиотека практик*
-
-Выберите практику для выполнения:
-"""
-
-        # Создаем клавиатуру с практиками
-        keyboard = []
-        for practice in practices:
-            status = "✅" if practice.id in completed_ids else "🔹"
-            button_text = f"{status} День {practice.day_number}"
-            if practice.premium and not user.subscribed:
-                button_text += " 🔒"
-
-            keyboard.append(
-                [InlineKeyboardButton(
-                    button_text,
-                    callback_data=f"library_practice_{practice.id}"
-                )]
-            )
-
-        # Добавляем кнопку возврата
-        keyboard.append([InlineKeyboardButton("⬅️ Главное меню", callback_data="menu")])
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        if query:
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-        else:
-            await context.bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode='Markdown')
-
-    except Exception as e:
-        logging.error(f"Ошибка в show_practice_library: {e}")
-        error_text = "Произошла ошибка при загрузке библиотеки."
-        if query:
-            await query.edit_message_text(error_text)
-        else:
-            await context.bot.send_message(chat_id, error_text)
-    finally:
-        db.close()
-
-
-async def handle_library_practice_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик выбора практики из библиотеки"""
-    query = update.callback_query
-    await query.answer()
-
-    practice_id = query.data.replace("library_practice_", "")
-    await log_interaction(update, "LIBRARY_PRACTICE_SELECTED", f"PracticeID: {practice_id}")
-
-    db = SessionLocal()
-    try:
-        practice = db.query(Practice).filter(Practice.id == practice_id).first()
-        if not practice:
-            await query.edit_message_text("Практика не найдена")
-            return
-
-        user_id = update.effective_user.id
-        user = db.query(User).filter(User.tg_id == user_id).first()
-
-        # Проверяем доступ к премиум контенту
-        if practice.premium and not user.subscribed:
-            await query.edit_message_text(
-                f"🔒 *Премиум контент*\n\nПрактика дня {practice.day_number} доступна только для подписчиков.",
-                parse_mode='Markdown'
-            )
-            return
-
-        # Сохраняем выбранную практику в context для использования в процессе
-        context.user_data['selected_practice_id'] = practice.id
-        context.user_data['from_library'] = True
-
-        # Спрашиваем настроение перед практикой
-        mood_keyboard = await get_moods_keyboard()
-        await query.edit_message_text(
-            f"🧘 *Практика дня {practice.day_number}*\n\nКакое у вас сейчас настроение?",
-            reply_markup=mood_keyboard,
-            parse_mode='Markdown'
-        )
-
-    except Exception as e:
-        logging.error(f"Ошибка в handle_library_practice_selection: {e}")
-        await query.edit_message_text("Произошла ошибка при загрузке практики")
-    finally:
-        db.close()
-
 
 async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Сброс прогресса и начало заново"""
@@ -948,10 +873,11 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
         if user:
             user.current_day = 1
             user.streak = 0
+            # НЕ удаляем логи практик, чтобы пользователь мог их повторять
             db.commit()
 
             await query.edit_message_text(
-                "🔄 *Прогресс сброшен!*\n\nНачинаем новое 7-дневное путешествие.",
+                "🔄 *Прогресс сброшен!*\n\nНачинаем новое 7-дневное путешествие.\n\nВаша история пройденных практик сохранена и доступна для повторения.",
                 parse_mode='Markdown'
             )
             await show_daily_practice(update, context)
@@ -959,7 +885,6 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text("Пользователь не найден")
     finally:
         db.close()
-
 
 async def send_onboarding(update: Update, _context: ContextTypes.DEFAULT_TYPE, _user: User):
     """Процесс онбординга для нового пользователя"""
@@ -1020,6 +945,146 @@ async def send_onboarding(update: Update, _context: ContextTypes.DEFAULT_TYPE, _
         "Выберите удобное время для ежедневных практик:",
         reply_markup=reply_markup
     )
+
+
+async def send_static_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    buttons: list,
+    media=None
+):
+    """Функция для статических меню с поддержкой медиа"""
+    await log_interaction(update, "STATIC_MENU_SHOWN")
+
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+
+    # Создаем клавиатуру
+    keyboard = [[InlineKeyboardButton(btn["text"], callback_data=btn["goto"])] for btn in buttons]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Если есть медиа - отправляем его
+    if media:
+        # Определяем тип медиа и отправляем
+        for media_item in media:
+            media_str = str(media_item).lower()
+            if media_str.endswith(('.mp4', '.mov', '.avi')) or media_str.startswith('baac'):
+                # Видео
+                await context.bot.send_video(chat_id=chat_id, video=media_item)
+            elif media_str.endswith(('.jpg', '.jpeg', '.png', '.gif')) or media_str.startswith('agac'):
+                # Фото
+                await context.bot.send_photo(chat_id=chat_id, photo=media_item)
+            elif media_str.endswith(('.mp3', '.m4a', '.ogg')) or media_str.startswith('cAac'):
+                # Аудио
+                await context.bot.send_audio(chat_id=chat_id, audio=media_item)
+
+    # Отправляем текст с кнопками
+    if query:
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown',
+            disable_web_page_preview=True
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown',
+            disable_web_page_preview=True
+        )
+
+
+async def send_menu_with_media(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    buttons: list,
+    media=None,  # может быть списком file_id
+    images=None,  # альтернативное название для медиа
+    query=None,
+    chat_id=None
+):
+    """Универсальная функция для отправки меню с медиа (фото/видео)"""
+    await log_interaction(update, "MENU_WITH_MEDIA_SHOWN")
+
+    if query:
+        await query.answer()
+        chat_id = query.message.chat.id
+    else:
+        if chat_id is None:
+            chat_id = update.effective_chat.id
+
+    # Определяем источник медиа (media или images)
+    media_files = media or images or []
+
+    # Отправляем медиа, если есть
+    for media_file in media_files:
+        try:
+            media_str = str(media_file).lower()
+
+            # Определяем тип медиа по расширению или префиксу file_id
+            if media_str.endswith('.mp4') or media_str.startswith('baac'):
+                # Видео
+                await context.bot.send_video(
+                    chat_id=chat_id,
+                    video=media_file,
+                    caption=text if media_file == media_files[0] else None,  # Текст только к первому медиа
+                    parse_mode='Markdown'
+                )
+            elif media_str.endswith('.mp3') or media_str.startswith('cAac'):
+                # Аудио
+                await context.bot.send_audio(
+                    chat_id=chat_id,
+                    audio=media_file,
+                    caption=text if media_file == media_files[0] else None,
+                    parse_mode='Markdown'
+                )
+            else:
+                # Фото (по умолчанию)
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=media_file,
+                    caption=text if media_file == media_files[0] else None,
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            logging.error(f"Ошибка отправки медиа {media_file}: {e}")
+
+    # Если медиа нет или мы хотим гарантированно показать текст с кнопками
+    if not media_files:
+        # Создаем клавиатуру
+        keyboard = [[InlineKeyboardButton(btn["text"], callback_data=btn["goto"])] for btn in buttons]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        if query:
+            await query.edit_message_text(
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+    else:
+        # Если медиа были отправлены, отправляем кнопки отдельным сообщением
+        keyboard = [[InlineKeyboardButton(btn["text"], callback_data=btn["goto"])] for btn in buttons]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Выберите действие:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
 
 
 async def send_menu(
@@ -1119,15 +1184,20 @@ def get_menu_data(menu_name: str) -> dict:
         return {"text": f"Ошибка загрузки меню: {e}", "buttons": []}
 
 
-async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str, delete=False):
-    """Показывает меню по имени из YAML"""
+async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str):
+    """Показывает меню по имени из YAML с поддержкой медиа"""
     menu_data = get_menu_data(menu_name)
-    await send_menu(
+
+    # Поддерживаем оба варианта: media и images
+    media = menu_data.get("media", [])
+    images = menu_data.get("images", [])
+
+    await send_menu_with_media(
         update, context,
-        media=menu_data.get("media", []),
         text=menu_data.get("text", ""),
         buttons=menu_data.get("buttons", []),
-        delete=delete,
+        media=media,
+        images=images
     )
 
 
@@ -1146,23 +1216,29 @@ def register_handlers(app: Application):
 
     data = data["main-menu"]
 
+    logging.info(f"Найдены меню для регистрации: {list(data.keys())}")
+
     for menu_name, menu_data in data.items():
         if menu_name in excluded_menus:
             logging.info(f"Пропускаем регистрацию меню: {menu_name}")
             continue
 
         text = menu_data.get("text", "")
-        media = menu_data.get("media", [])
         buttons = menu_data.get("buttons", [])
+        media = menu_data.get("media", [])
+        images = menu_data.get("images", [])
 
-        def make_handler(name=menu_name, text_=text, media_=media, buttons_=buttons):
+        logging.info(f"Регистрируем меню: {menu_name} с {len(buttons)} кнопками, медиа: {len(media)}, images: {len(images)}")
+
+        def make_handler(name=menu_name, text_=text, buttons_=buttons, media_=media, images_=images):
             async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await log_interaction(update, f"MENU_NAVIGATION", f"Menu: {name}")
-                return await send_menu(
+                return await send_menu_with_media(
                     update, context,
-                    media=media_,
                     text=text_,
-                    buttons=buttons_
+                    buttons=buttons_,
+                    media=media_,
+                    images=images_
                 )
 
             return handler
@@ -1172,7 +1248,6 @@ def register_handlers(app: Application):
         app.add_handler(CallbackQueryHandler(make_handler(), pattern=f"^{menu_name}$"))
 
     return app
-
 def main():
     create_tables()
     app = ApplicationBuilder().token(settings.bot_token).build()
@@ -1205,10 +1280,11 @@ def main():
     app.add_handler(CallbackQueryHandler(show_practice_again, pattern="^practice_again$"))
     app.add_handler(CallbackQueryHandler(handle_repeat_practice_selection, pattern="^repeat_practice_"))
 
-    # Регистрируем статичные меню из YAML
+    # Регистрируем статичные меню из YAML (библиотека, статьи, музыка и т.д.)
     register_handlers(app)
 
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

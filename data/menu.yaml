@@ -4,6 +4,8 @@ main-menu:
             🧘 *Ваше пространство для дыхания*
             
             Здесь вы найдете практики, которые помогут обрести гармонию и спокойствие.
+        media:
+            - AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ
         buttons:
             - { text: "🧘 Практика дня", goto: daily_practice }
             - { text: "🔄 Пройти снова", goto: practice_again }
@@ -21,10 +23,11 @@ main-menu:
             - { text: "⬅️ Назад", goto: menu }
 
     practice_again:
-        text: "🔄 *Повторить практики*"
+        text: |
+            🔄 *Повторить практики*
+            
+            Здесь вы можете повторить уже пройденные практики.
         buttons:
-            - { text: "📋 Все практики", goto: all_practices }
-            - { text: "⭐ Избранные", goto: favorite_practices }
             - { text: "⬅️ Назад", goto: menu }
 
     all_practices:
