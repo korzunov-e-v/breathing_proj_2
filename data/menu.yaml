@@ -6,6 +6,7 @@ main-menu:
             Здесь вы найдете практики, которые помогут обрести гармонию и спокойствие.
         buttons:
             - { text: "🧘 Практика дня", goto: daily_practice }
+            - { text: "🔄 Пройти снова", goto: practice_again }
             - { text: "📚 Библиотека", goto: library }
             - { text: "📊 Дневник эмоций", goto: emotion_diary }
             - { text: "📈 Аналитика", goto: analytics }
@@ -18,6 +19,18 @@ main-menu:
             - { text: "🎵 Музыка", goto: music }
             - { text: "💝 Избранное", goto: favorites }
             - { text: "⬅️ Назад", goto: menu }
+
+    practice_again:
+        text: "🔄 *Повторить практики*"
+        buttons:
+            - { text: "📋 Все практики", goto: all_practices }
+            - { text: "⭐ Избранные", goto: favorite_practices }
+            - { text: "⬅️ Назад", goto: menu }
+
+    all_practices:
+        text: "📋 *Все практики*"
+        buttons:
+            - { text: "⬅️ Назад", goto: practice_again }
 
     articles:
         text: "Статьи о дыхании и медитации"
