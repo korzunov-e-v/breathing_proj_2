@@ -51,7 +51,6 @@ def setup_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
-
 async def log_interaction(update: Update, interaction_type: str, additional_info: str = ""):
     """Логирует все взаимодействия с ботом"""
     user = update.effective_user
@@ -509,6 +508,27 @@ async def handle_change_time(update: Update, _context: ContextTypes.DEFAULT_TYPE
     )
 
 
+async def send_message_with_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    buttons: list,
+    query=None,
+    chat_id=None,
+    menu_text: str = "Выберите действие:",
+    delete: bool = True
+):
+    """Helper function to send a message with menu buttons"""
+    if query:
+        await query.edit_message_text(text, parse_mode='Markdown')
+        await send_menu(update, context, [], menu_text, buttons, delete=delete)
+    else:
+        if chat_id is None:
+            chat_id = update.effective_chat.id
+        await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+        await send_menu(update, context, [], menu_text, buttons, delete=delete)
+
+
 async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает практику дня с динамическими данными из БД"""
     await log_interaction(update, "DAILY_PRACTICE_REQUESTED")
@@ -547,12 +567,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
 
-            if query:
-                await query.edit_message_text(text, parse_mode='Markdown')
-                await send_menu(update, context, [], "Выберите действие:", buttons)
-            else:
-                await context.bot.send_message(chat_id, text, parse_mode='Markdown')
-                await send_menu(update, context, [], "Выберите действие:", buttons)
+            await send_message_with_menu(update, context, text, buttons, query, chat_id)
             return
 
         # Проверяем доступ к премиум контенту
@@ -581,12 +596,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
 
-            if query:
-                await query.edit_message_text(text, parse_mode='Markdown')
-                await send_menu(update, context, [], "Выберите действие:", buttons)
-            else:
-                await context.bot.send_message(chat_id, text, parse_mode='Markdown')
-                await send_menu(update, context, [], "Выберите действие:", buttons)
+            await send_message_with_menu(update, context, text, buttons, query, chat_id, delete=False)
             return
 
         # Сначала спрашиваем настроение перед практикой
