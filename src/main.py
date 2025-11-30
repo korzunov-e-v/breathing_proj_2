@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 
 import yaml
 from sqlalchemy import func
@@ -17,18 +18,70 @@ from src.database import SessionLocal, create_tables
 from src.models import PracticeLog, User, Practice, Mood
 from src.settings import settings
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logging.getLogger("httpx").setLevel(logging.WARNING)
+
+# Настройка расширенного логирования
+def setup_logging():
+    """Настраивает логирование в файл и stdout"""
+    # Создаем логгер
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Форматтер для логов
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Обработчик для файла
+    file_handler = logging.FileHandler('bot.log', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+
+    # Обработчик для stdout
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(formatter)
+
+    # Очищаем существующие обработчики и добавляем новые
+    logger.handlers.clear()
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
+    # Устанавливаем уровень для httpx
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+
+async def log_interaction(update: Update, interaction_type: str, additional_info: str = ""):
+    """Логирует все взаимодействия с ботом"""
+    user = update.effective_user
+    chat = update.effective_chat
+
+    user_info = f"UserID: {user.id}, Username: @{user.username}" if user else "Unknown user"
+    chat_info = f"ChatID: {chat.id}, Type: {chat.type}" if chat else "Unknown chat"
+
+    if update.message:
+        message_info = f"MessageID: {update.message.message_id}, Text: '{update.message.text}'"
+    elif update.callback_query:
+        message_info = f"CallbackData: '{update.callback_query.data}'"
+    else:
+        message_info = "No message data"
+
+    log_message = (
+        f"🔹 {interaction_type} | {user_info} | {chat_info} | "
+        f"{message_info} | {additional_info}"
+    )
+
+    logging.info(log_message)
 
 
 async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик медиа-файлов с логированием"""
+    await log_interaction(update, "MEDIA_RECEIVED")
+
     msg = update.message
     if msg.photo:
-        file_id = msg.photo[-1].file_id  # Берем самый большой размер
+        file_id = msg.photo[-1].file_id
         await msg.reply_text(f'Photo file_id: <code>{file_id}</code>', parse_mode='HTML')
     elif msg.video:
         file_id = msg.video.file_id
@@ -74,7 +127,7 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
 
     mood_id = query.data.replace("mood_", "")
-    user_id = query.from_user.id
+    await log_interaction(update, "MOOD_SELECTED", f"MoodID: {mood_id}")
 
     db = SessionLocal()
     try:
@@ -109,6 +162,8 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает содержание практики после выбора настроения"""
+    await log_interaction(update, "PRACTICE_SHOWN")
+
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
@@ -165,6 +220,9 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start с логированием"""
+    await log_interaction(update, "START_COMMAND")
+
     user = update.effective_user
     _chat_id = update.effective_chat.id
 
@@ -181,24 +239,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             db.add(db_user)
             db.commit()
-            print(f"Создан новый пользователь: {user.username} (ID: {user.id})")
+            logging.info(f"Создан новый пользователь: {user.username} (ID: {user.id})")
 
             # Онбординг для нового пользователя
             await send_onboarding(update, context, db_user)
         else:
-            print(f"Пользователь уже существует: {user.username}")
+            logging.info(f"Пользователь уже существует: {user.username}")
             # Показываем главное меню из YAML для существующего пользователя
             await show_menu_by_name(update, context, "menu")
     finally:
         db.close()
 
 
-async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Обработчик выбора времени"""
     query = update.callback_query
     await query.answer()
 
     time_str = query.data.replace("set_time_", "")
+    await log_interaction(update, "TIME_SELECTED", f"Time: {time_str}")
+
     user_id = query.from_user.id
 
     keyboard = [
@@ -228,10 +288,12 @@ async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TY
         db.close()
 
 
-async def ask_feedback_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_feedback_rating(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Запрашивает оценку практики"""
     query = update.callback_query
     await query.answer()
+
+    await log_interaction(update, "FEEDBACK_RATING_REQUESTED")
 
     rating_keyboard = await get_rating_keyboard()
     await query.edit_message_text(
@@ -249,6 +311,8 @@ async def handle_rating_selection(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
 
     rating = int(query.data.replace("rating_", ""))
+    await log_interaction(update, "RATING_SELECTED", f"Rating: {rating}")
+
     context.user_data['feedback_rating'] = rating
 
     # Переходим к запросу комментария
@@ -259,6 +323,8 @@ async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYP
     """Запрашивает комментарий к практике"""
     query = update.callback_query
     await query.answer()
+
+    await log_interaction(update, "FEEDBACK_COMMENT_REQUESTED")
 
     # Сохраняем состояние ожидания комментария
     context.user_data['waiting_for_comment'] = True
@@ -282,6 +348,8 @@ async def handle_comment_skip(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
 
+    await log_interaction(update, "COMMENT_SKIPPED")
+
     context.user_data['feedback_comment'] = None
     context.user_data.pop('waiting_for_comment', None)
 
@@ -295,6 +363,8 @@ async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     comment = update.message.text
+    await log_interaction(update, "COMMENT_RECEIVED", f"Comment: '{comment[:50]}...'")
+
     context.user_data['feedback_comment'] = comment
     context.user_data.pop('waiting_for_comment', None)
 
@@ -312,6 +382,18 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
     """Обработчик завершения практики"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+
+    # Логируем завершение практики
+    mood_before = context.user_data.get('mood_before')
+    mood_after = context.user_data.get('mood_after')
+    rating = context.user_data.get('feedback_rating')
+    has_comment = bool(context.user_data.get('feedback_comment'))
+
+    await log_interaction(
+        update,
+        "PRACTICE_COMPLETED",
+        f"MoodBefore: {mood_before}, MoodAfter: {mood_after}, Rating: {rating}, HasComment: {has_comment}"
+    )
 
     # Определяем, откуда брать сообщение для редактирования
     if update.callback_query:
@@ -388,10 +470,12 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         db.close()
 
 
-async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_mood_after_practice(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Спрашивает настроение после практики"""
     query = update.callback_query
     await query.answer()
+
+    await log_interaction(update, "MOOD_AFTER_REQUESTED")
 
     mood_keyboard = await get_moods_keyboard()
     await query.edit_message_text(
@@ -401,10 +485,12 @@ async def ask_mood_after_practice(update: Update, context: ContextTypes.DEFAULT_
     )
 
 
-async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_change_time(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Обработчик для меню смены времени"""
     query = update.callback_query
     await query.answer()
+
+    await log_interaction(update, "CHANGE_TIME_REQUESTED")
 
     # Показываем меню выбора времени (программно, не из YAML)
     time_keyboard = [
@@ -425,10 +511,12 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает практику дня с динамическими данными из БД"""
+    await log_interaction(update, "DAILY_PRACTICE_REQUESTED")
+
     query = update.callback_query
     if query and query.message:
         await query.answer()
-        chat_id = query.message.chat_id
+        chat_id = query.message.chat.id
     else:
         chat_id = update.effective_chat.id
 
@@ -538,6 +626,8 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
 
+    await log_interaction(update, "PRACTICES_RESTARTED")
+
     user_id = query.from_user.id
     db = SessionLocal()
 
@@ -559,8 +649,9 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
         db.close()
 
 
-async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE, user: User):
+async def send_onboarding(update: Update, _context: ContextTypes.DEFAULT_TYPE, _user: User):
     """Процесс онбординга для нового пользователя"""
+    await log_interaction(update, "ONBOARDING_STARTED")
 
     # 1. Приветствие
     welcome_text = """
@@ -623,6 +714,18 @@ async def send_menu(
     update: Update, context: ContextTypes.DEFAULT_TYPE,
     media, text, buttons, delete=True,
 ):
+    """Отправляет меню с логированием"""
+    menu_name = "UNKNOWN"
+    if buttons:
+        for btn in buttons:
+            if btn.get("goto") == "menu":
+                menu_name = "MAIN_MENU"
+                break
+            elif btn.get("goto") == "daily_practice":
+                menu_name = "DAILY_PRACTICE_MENU"
+                break
+
+    await log_interaction(update, f"MENU_SHOWN_{menu_name}", f"Buttons: {len(buttons)}")
 
     chat_id = update.effective_chat.id
 
@@ -742,6 +845,7 @@ def register_handlers(app: Application):
 
         def make_handler(name=menu_name, text_=text, media_=media, buttons_=buttons):
             async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+                await log_interaction(update, f"MENU_NAVIGATION", f"Menu: {name}")
                 return await send_menu(
                     update, context,
                     media=media_,
@@ -759,9 +863,13 @@ def register_handlers(app: Application):
 
 
 def main():
-    TOKEN = settings.bot_token
     create_tables()
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(settings.bot_token).build()
+    # Вызываем настройку логирования при импорте
+    setup_logging()
+
+    # Логируем запуск бота
+    logging.info("🤖 Бот запущен и готов к работе!")
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
