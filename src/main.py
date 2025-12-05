@@ -1165,7 +1165,7 @@ async def send_menu(
 def get_menu_data(menu_name: str) -> dict:
     """Получает данные меню из YAML по имени"""
     try:
-        with open("data/menu.yaml", "r") as f:
+        with open("data/menu.yaml", "r", encoding='utf-8') as f:
             data = yaml.safe_load(f)
 
         logging.info(f"Ищем меню: {menu_name}")
@@ -1203,7 +1203,7 @@ async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 def register_handlers(app: Application):
     """Регистрирует только статичные меню из YAML, исключая динамические"""
-    with open("data/menu.yaml", "r") as f:
+    with open("data/menu.yaml", "r", encoding='utf-8') as f:
         data = yaml.safe_load(f)
 
     if "main-menu" not in data:

@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     db_port: int = Field(15432, alias="postgres_port")
     db_url: Optional[PostgresDsn] = None
 
-    yookassa_api_key: str = Field()
-    yookassa_api_secret: str = Field()
+    yookassa_api_key: str = Field("")
+    yookassa_api_secret: str = Field("")
     yookassa_tax_system_code: int = Field(1)
     return_url: Optional[str] = Field(None)
 
