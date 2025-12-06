@@ -3,6 +3,7 @@ from flask_admin.contrib.sqla import ModelView
 from wtforms import TextAreaField
 from wtforms.widgets import TextArea
 
+
 # Админы по TG ID (замените на свои)
 ADMIN_IDS = {392350805}
 

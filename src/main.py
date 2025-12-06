@@ -2,29 +2,39 @@ import asyncio
 import logging
 import sys
 
-import yaml
 from sqlalchemy import func
 from telegram import (
-    InlineKeyboardButton, InlineKeyboardMarkup,
-    InputMediaPhoto, InputMediaVideo, Update
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
+    Update,
 )
 from telegram.ext import (
-    Application, ApplicationBuilder,
-    CallbackQueryHandler, CommandHandler, ContextTypes,
-    MessageHandler, filters
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    filters,
+    MessageHandler,
 )
+import yaml
 
-from src.database import SessionLocal, create_tables
+from src.database import create_tables, SessionLocal
 from src.emotions import (
-    handle_emotion_selection,
-    handle_custom_emotion,
+    export_emotions_data,
     handle_add_note,
-    show_emotion_stats,
+    handle_custom_emotion,
+    handle_custom_emotion_text,
+    handle_emotion_selection,
+    handle_note_text,
     show_emotion_chart,
-    export_emotions_data, handle_custom_emotion_text, handle_note_text
+    show_emotion_stats,
 )
-from src.models import PracticeLog, User, Practice, Mood
+from src.models import Mood, Practice, PracticeLog, User
 from src.settings import settings
+
 # from src.app_tasks import start_scheduler
 from src.telegram_utils import send_text_with_buttons
 

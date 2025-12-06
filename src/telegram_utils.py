@@ -1,5 +1,5 @@
 # src/telegram_utils.py
-from typing import Optional, Any
+from typing import Any, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 

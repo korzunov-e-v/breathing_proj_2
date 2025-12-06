@@ -1,8 +1,9 @@
 # src/gpt_integration.py
-import logging
-from typing import List, Dict, Any
-import openai
 from datetime import datetime, timedelta
+import logging
+from typing import Any, Dict, List
+
+import openai
 
 from src.database import SessionLocal
 from src.models import Emotion, PracticeLog, User

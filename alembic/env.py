@@ -1,11 +1,12 @@
 # alembic/env.py
+from logging.config import fileConfig
 import os
 import sys
-from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+
 
 # Добавляем путь к проекту в sys.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -13,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from src.database import Base
 from src.models import *
 from src.settings import settings
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

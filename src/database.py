@@ -6,6 +6,7 @@ from alembic import command
 from alembic.config import Config
 from src.settings import settings
 
+
 # Получаем параметры подключения из переменных окружения
 POSTGRES_USER = settings.db_user
 POSTGRES_PASSWORD = settings.db_password

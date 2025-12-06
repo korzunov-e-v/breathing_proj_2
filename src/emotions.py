@@ -1,14 +1,14 @@
 # src/emotions.py
-import logging
 from datetime import datetime, timedelta
+import logging
 
 from sqlalchemy import func
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from src.database import SessionLocal
-from src.models import Emotion, Mood, User
 from src.gpt_integration import analyze_emotion_patterns
+from src.models import Emotion, Mood, User
 
 
 async def handle_emotion_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -2,6 +2,7 @@ from flask import redirect, render_template_string, request, session
 
 from admin.admin_app import create_admin_app
 
+
 app = create_admin_app()
 
 # Простая страница логина по TG ID
