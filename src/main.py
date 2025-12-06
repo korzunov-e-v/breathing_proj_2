@@ -21,6 +21,7 @@ from telegram.ext import (
 )
 import yaml
 
+from src.app_tasks import start_scheduler
 from src.database import create_tables, SessionLocal
 from src.emotions import (
     export_emotions_data,
@@ -1311,8 +1312,8 @@ def main():
     app.run_polling()
 
     # После запуска бота запускаем планировщик
-    # loop = asyncio.get_event_loop()
-    # loop.create_task(start_scheduler(app))
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_scheduler(app))
 
 
 if __name__ == "__main__":
