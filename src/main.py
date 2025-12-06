@@ -15,8 +15,18 @@ from telegram.ext import (
 )
 
 from src.database import SessionLocal, create_tables
+from src.emotions import (
+    handle_emotion_selection,
+    handle_custom_emotion,
+    handle_add_note,
+    show_emotion_stats,
+    show_emotion_chart,
+    export_emotions_data, handle_custom_emotion_text, handle_note_text
+)
 from src.models import PracticeLog, User, Practice, Mood
 from src.settings import settings
+# from src.app_tasks import start_scheduler
+from src.telegram_utils import send_text_with_buttons
 
 
 # Настройка расширенного логирования
@@ -74,7 +84,7 @@ async def log_interaction(update: Update, interaction_type: str, additional_info
     logging.info(log_message)
 
 
-async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Обработчик медиа-файлов с логированием и возвратом file_id"""
     await log_interaction(update, "MEDIA_RECEIVED")
 
@@ -440,7 +450,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             )
             db.add(practice_log)
 
-            # Обновляем прогресс пользователя только если это НЕ повтор
+            # Обновляем прогресс пользователя, только если это НЕ повтор
             if not context.user_data.get('is_repeat'):
                 user.streak += 1
                 user.current_day += 1
@@ -495,6 +505,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         await message_func("Произошла ошибка при завершении практики")
     finally:
         db.close()
+
 
 async def ask_mood_after_practice(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """Спрашивает настроение после практики"""
@@ -575,35 +586,7 @@ async def send_message_with_menu(
         )
 
 
-async def send_text_with_buttons(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    text: str,
-    buttons: list,
-    query=None,
-    chat_id=None,
-    parse_mode: str = 'Markdown'
-):
-    """Отправляет текст с кнопками в одном сообщении (без отдельного меню)"""
-    # Создаем клавиатуру для inline-кнопок
-    keyboard = [[InlineKeyboardButton(btn["text"], callback_data=btn["goto"])] for btn in buttons]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    if query:
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode
-        )
-    else:
-        if chat_id is None:
-            chat_id = update.effective_chat.id
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode
-        )
+# send_text_with_buttons moved to src.telegram_utils to avoid circular imports
 
 
 async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -721,6 +704,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
     finally:
         db.close()
 
+
 async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает меню для повторного прохождения ТОЛЬКО ПРОЙДЕННЫХ практик"""
     await log_interaction(update, "PRACTICE_AGAIN_REQUESTED")
@@ -812,6 +796,8 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.send_message(chat_id, error_text)
     finally:
         db.close()
+
+
 async def handle_repeat_practice_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик выбора практики для повторного прохождения"""
     query = update.callback_query
@@ -857,7 +843,6 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
         db.close()
 
 
-
 async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Сброс прогресса и начало заново"""
     query = update.callback_query
@@ -885,6 +870,7 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text("Пользователь не найден")
     finally:
         db.close()
+
 
 async def send_onboarding(update: Update, _context: ContextTypes.DEFAULT_TYPE, _user: User):
     """Процесс онбординга для нового пользователя"""
@@ -1053,7 +1039,7 @@ async def send_menu_with_media(
         except Exception as e:
             logging.error(f"Ошибка отправки медиа {media_file}: {e}")
 
-    # Если медиа нет или мы хотим гарантированно показать текст с кнопками
+    # Если медиа нет, или мы хотим гарантированно показать текст с кнопками
     if not media_files:
         # Создаем клавиатуру
         keyboard = [[InlineKeyboardButton(btn["text"], callback_data=btn["goto"])] for btn in buttons]
@@ -1248,6 +1234,8 @@ def register_handlers(app: Application):
         app.add_handler(CallbackQueryHandler(make_handler(), pattern=f"^{menu_name}$"))
 
     return app
+
+
 def main():
     create_tables()
     app = ApplicationBuilder().token(settings.bot_token).build()
@@ -1255,8 +1243,35 @@ def main():
 
     logging.info("🤖 Бот запущен и готов к работе!")
 
+    # Существующие обработчики...
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
+
+    # НОВЫЕ обработчики для эмоций
+    app.add_handler(CallbackQueryHandler(handle_emotion_selection, pattern="^log_emotion_"))
+    app.add_handler(CallbackQueryHandler(handle_custom_emotion, pattern="^custom_emotion$"))
+    app.add_handler(CallbackQueryHandler(handle_add_note, pattern="^add_note_"))
+    app.add_handler(CallbackQueryHandler(show_emotion_stats, pattern="^emotion_stats$"))
+    app.add_handler(CallbackQueryHandler(show_emotion_chart, pattern="^emotion_chart$"))
+    app.add_handler(CallbackQueryHandler(export_emotions_data, pattern="^export_emotions$"))
+
+    # Обработчик текста для кастомных эмоций
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_custom_emotion_text
+        ),
+        group=101,
+    )
+
+    # Обработчик текста для заметок
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_note_text
+        ),
+        group=102,
+    )
 
     # Обработчики для динамических меню
     app.add_handler(CallbackQueryHandler(handle_change_time, pattern="^change_time$"))
@@ -1272,7 +1287,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_rating_selection, pattern="^rating_"))
     app.add_handler(CallbackQueryHandler(ask_feedback_rating, pattern="^ask_feedback_rating$"))
     app.add_handler(CallbackQueryHandler(handle_comment_skip, pattern="^skip_comment$"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text), group=103,)
 
     # Практики
     app.add_handler(CallbackQueryHandler(show_daily_practice, pattern="^daily_practice$"))
@@ -1284,6 +1299,10 @@ def main():
     register_handlers(app)
 
     app.run_polling()
+
+    # После запуска бота запускаем планировщик
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(start_scheduler(app))
 
 
 if __name__ == "__main__":

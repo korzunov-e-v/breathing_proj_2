@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     admin_tg_ids: Optional[list[int]] = Field(None)
 
     openrouter_token: Optional[str] = Field(None)
+    openai_api_key: Optional[str] = Field(None)
 
     def model_post_init(self, context: Optional[Any]) -> None:
         """Construct the database URL from individual connection parameters.

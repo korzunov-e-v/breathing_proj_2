@@ -14,6 +14,28 @@ main-menu:
             - { text: "📈 Аналитика", goto: analytics }
             - { text: "⚙️ Настройки", goto: settings }
 
+    emotion_diary:
+        text: |
+            📖 *Дневник эмоций*
+            
+            Отслеживание эмоций помогает:
+            • Лучше понимать себя
+            • Замечать паттерны настроения
+            • Управлять стрессом
+            • Развивать эмоциональный интеллект
+            
+            Записывайте эмоции в течение дня, и я помогу вам их проанализировать!
+        buttons:
+            -   text: "📝 Записать эмоцию сейчас"
+                goto: "custom_emotion"
+            -   text: "📊 Моя статистика"
+                goto: "emotion_stats"
+            -   text: "📈 График эмоций"
+                goto: "emotion_chart"
+            -   text: "📁 Экспорт данных"
+                goto: "export_emotions"
+            -   text: "⬅️ Назад"
+                goto: "menu"
     library:
         text: "📚 *Библиотека знаний*"
         buttons:
@@ -49,11 +71,6 @@ main-menu:
         text: "Ваши сохраненные материалы"
         buttons:
             - { text: "⬅️ Назад", goto: library }
-
-    emotion_diary:
-        text: "Дневник эмоций"
-        buttons:
-            - { text: "⬅️ Назад", goto: menu }
 
     analytics:
         text: "Ваша статистика и прогресс"

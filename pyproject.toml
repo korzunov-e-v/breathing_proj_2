@@ -5,10 +5,12 @@ description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.17.2",
+    "apscheduler>=3.11.1",
     "flask>=3.1.2",
     "flask-admin>=2.0.2",
     "flask-sqlalchemy>=3.1.1",
     "isort>=7.0.0",
+    "openai>=2.9.0",
     "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
