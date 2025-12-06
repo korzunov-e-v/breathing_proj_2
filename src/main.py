@@ -1309,12 +1309,15 @@ def main():
     # Регистрируем статичные меню из YAML (библиотека, статьи, музыка и т.д.)
     register_handlers(app)
 
+    # После запуска бота запускаем планировщик
+    async def on_startup(application):
+        logging.info("Запуск планировщика задач...")
+        asyncio.create_task(start_scheduler(application))
+
+    app.post_init = on_startup
+
     app.run_polling()
 
-    # После запуска бота запускаем планировщик
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_scheduler(app))
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

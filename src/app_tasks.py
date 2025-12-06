@@ -22,7 +22,7 @@ class TaskScheduler:
     async def start(self):
         """Запуск планировщика"""
         self.logger.info("🚀 Запуск планировщика задач...")
-
+        logging.warning("Запуск планировщика задач")
         # Создаем задачи
         asyncio.create_task(self._daily_scheduler())
         asyncio.create_task(self._reminder_scheduler())
@@ -32,8 +32,6 @@ class TaskScheduler:
         """Ежедневные уведомления в установленное время"""
         while True:
             try:
-                await asyncio.sleep(60)  # Проверяем каждую минуту
-
                 now = datetime.now()
                 current_time = now.strftime("%H:%M")
 
@@ -49,6 +47,7 @@ class TaskScheduler:
                             User.practice_time == (now + timedelta(minutes=1)).strftime("%H:%M")
                         )
                     ).all()
+                    self.logger.info(f"found for notification {users=}")
 
                     for user in users:
                         # Проверяем, не отправили ли уже уведомление сегодня
@@ -64,7 +63,7 @@ class TaskScheduler:
 
                 finally:
                     db.close()
-
+                await asyncio.sleep(60)  # Проверяем каждую минуту
             except Exception as e:
                 self.logger.error(f"Ошибка в daily_scheduler: {e}")
                 await asyncio.sleep(300)  # Ждем 5 минут при ошибке
@@ -140,8 +139,6 @@ class TaskScheduler:
         """Умные напоминания о практике"""
         while True:
             try:
-                await asyncio.sleep(300)  # Проверяем каждые 5 минут
-
                 db = SessionLocal()
                 try:
                     # Находим пользователей, которые сегодня не практиковались
@@ -162,7 +159,7 @@ class TaskScheduler:
 
                 finally:
                     db.close()
-
+                await asyncio.sleep(60)  # Проверяем каждые 1 минуту
             except Exception as e:
                 self.logger.error(f"Ошибка в reminder_scheduler: {e}")
                 await asyncio.sleep(600)
