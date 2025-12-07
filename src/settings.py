@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     model initialization.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env.docker", extra="ignore")
 
     bot_token: str = Field()
 
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     db_user: str = Field("postgres", alias="postgres_user")
     db_password: str = Field("postgres", alias="postgres_password")
     db_host: str = Field("postgres", alias="postgres_host")
-    db_port: int = Field(15432, alias="postgres_port")
+    db_port: int = Field(5432, alias="postgres_port")
     db_url: Optional[PostgresDsn] = None
 
     yookassa_api_key: str = Field("")

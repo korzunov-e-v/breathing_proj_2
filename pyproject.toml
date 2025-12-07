@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.17.2",
     "apscheduler>=3.11.1",
+    "asyncpg>=0.31.0",
     "flask>=3.1.2",
     "flask-admin>=2.0.2",
     "flask-sqlalchemy>=3.1.1",

@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_admin import Admin
 
@@ -38,8 +40,13 @@ def create_admin_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = 'your-super-secret-key-change-this'
 
-    from src.settings import settings
-    app.config['SQLALCHEMY_DATABASE_URI'] = str(settings.db_url).replace('+asyncpg', '')
+    if not os.environ.get("DB_URL"):
+        from src.settings import settings
+        print(f"{settings.db_url=}")
+        app.config['SQLALCHEMY_DATABASE_URI'] = str(settings.db_url).replace('+asyncpg', '')
+    else:
+        print(f"{os.environ.get("DB_URL")=}")
+        app.config['SQLALCHEMY_DATABASE_URI'] = str(os.environ.get("DB_URL")).replace('+asyncpg', '')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     admin = Admin(app, name='Breathing Bot Admin')

@@ -1,26 +1,45 @@
 services:
     bot:
-        build: .
+        build:
+            context: .
         container_name: breathing-bot
-        restart: unless-stopped
-        env_file:
-            - .env
         depends_on:
             postgres:
                 condition: service_healthy
-        environment:
-            - TZ=Europe/Moscow
-            - POSTGRES_HOST=postgres
-            - POSTGRES_PORT=5432
-#        networks:
-#            - net
+        env_file:
+            - .env
         volumes:
-            - ./src:/srv/src
-#            - ./alembic:/srv/alembic
-#        command: >
-#            bash -c "cd /srv && uv run alembic upgrade head && uv run src/main.py"
-#        extra_hosts:
-#            - "host.docker.internal:172.18.0.1"
+            - ./logs:/app/logs
+            - ./data:/app/data
+            - ./admin:/app/admin
+            - ./alembic:/app/alembic
+            - ./src:/app/src
+        restart: unless-stopped
+        command: ["python", "src/main.py"]
+
+    # Админ-панель
+    admin:
+        build:
+            context: .
+        container_name: breathing-admin
+        depends_on:
+            - postgres
+        volumes:
+            - ./admin:/app/admin
+            - ./src:/app/src
+        environment:
+            POSTGRES_DB: breathing_db
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_HOST: postgres
+            POSTGRES_PORT: 5432
+            FLASK_APP: admin.admin_app
+            FLASK_ENV: production
+            SECRET_KEY: ${ADMIN_SECRET_KEY:-change-this-in-production}
+        ports:
+            - "0.0.0.0:5001:5001"
+        restart: unless-stopped
+        command: ["python", "admin/run_admin.py"]
 
     postgres:
         image: postgres:16
@@ -33,10 +52,10 @@ services:
             - .env
         volumes:
             - ./pg_data:/var/lib/postgresql/data
-#        networks:
-#            - net
+        #        networks:
+        #            - net
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+            test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
             interval: 10s
             timeout: 5s
             retries: 5
