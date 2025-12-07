@@ -7,7 +7,7 @@ services:
             postgres:
                 condition: service_healthy
         env_file:
-            - .env
+            - .env.docker
         volumes:
             - ./logs:/app/logs
             - ./data:/app/data
@@ -49,7 +49,7 @@ services:
         ports:
             - "127.0.0.1:15432:5432"
         env_file:
-            - .env
+            - .env.docker
         volumes:
             - ./pg_data:/var/lib/postgresql/data
         #        networks:
