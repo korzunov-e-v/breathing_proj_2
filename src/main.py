@@ -1216,7 +1216,6 @@ async def remind_later_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     finally:
         db.close()
 
-
 async def skip_today_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()

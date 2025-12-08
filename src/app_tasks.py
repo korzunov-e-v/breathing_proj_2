@@ -159,9 +159,10 @@ class TaskScheduler:
 
                     db.commit()
 
-                    # Находим пользователей, которые сегодня не практиковались
+                    # Находим пользователей, которые сегодня не практиковались и
+                    # не заморожены напоминания у каких
                     users = db.query(User).filter(
-                        User.freeze_reminders == False,
+                        User.freeze_reminders == False,  # Добавляем эту проверку
                         User.notification_paused == False,
                         User.practice_time.isnot(None),
                         or_(
@@ -179,8 +180,13 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в reminder_scheduler: {e}")
                 await asyncio.sleep(600)
+
     async def _check_and_send_reminder(self, user: User):
         """Проверяет и отправляет напоминание"""
+        # Проверяем, не заморожены ли напоминания
+        if user.freeze_reminders:
+            return
+
         db = SessionLocal()
         try:
             # Расписание напоминаний (часы_ожидания, текст)
@@ -232,22 +238,17 @@ class TaskScheduler:
                 # Получаем дату последнего напоминания
                 last_reminder_date = user.last_reminder_sent_at.date()
 
-                # Если сегодня уже отправляли напоминание и номер текущего напоминания совпадает
-                # с тем, сколько уже отправлено - значит уже отправляли это напоминание
+                # Если сегодня уже отправляли напоминание
                 if last_reminder_date == now.date():
-                    # Определяем, какое по счету было последнее отправленное напоминание
-                    # Для этого смотрим на время последнего напоминания
+                    # Проверяем, соответствует ли время последнего напоминания
+                    # времени ожидаемого напоминания для текущего счетчика
                     last_reminder_time = user.last_reminder_sent_at
+                    expected_time = today_practice_time + timedelta(hours=hours_to_wait)
 
-                    # Вычисляем, какое напоминание было отправлено последним
-                    for i, (hours, _) in enumerate(reminder_schedule):
-                        expected_time = today_practice_time + timedelta(hours=hours)
-                        # Если последнее напоминание было отправлено в +/- 10 минут от ожидаемого времени
-                        if abs((last_reminder_time - expected_time).total_seconds()) < 600:  # 10 минут
-                            # Если этот номер напоминания >= текущему - уже отправляли
-                            if i >= current_reminder:
-                                return
-                            break
+                    # Если последнее напоминание было отправлено в пределах 10 минут от ожидаемого времени
+                    # для текущего счетчика, значит это напоминание уже отправлено
+                    if abs((last_reminder_time - expected_time).total_seconds()) < 600:  # 10 минут
+                        return
 
             # Проверяем, не практиковался ли пользователь уже после времени, когда должно было быть это напоминание
             if user.last_practice_at and user.last_practice_at.date() == now.date():
