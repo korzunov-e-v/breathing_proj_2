@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     model initialization.
     """
 
-    model_config = SettingsConfigDict(env_file=".env.docker", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     bot_token: str = Field()
 

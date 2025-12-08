@@ -1198,6 +1198,42 @@ async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     )
 
 
+# В вашем основном файле с обработчиками:
+async def remind_later_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            # Увеличиваем счетчик напоминаний, чтобы перейти к следующему
+            user.reminder_count_today = min(user.reminder_count_today + 1, 4)
+            db.commit()
+
+            await query.edit_message_text("⏰ Хорошо, напомню позже!")
+    finally:
+        db.close()
+
+
+async def skip_today_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            # Замораживаем напоминания на сегодня
+            user.freeze_reminders = True
+            db.commit()
+
+            await query.edit_message_text("✋ Хорошо, отменяю напоминания на сегодня. Удачи!")
+    finally:
+        db.close()
+
 def register_handlers(app: Application):
     """Регистрирует только статичные меню из YAML, исключая динамические"""
     with open("data/menu.yaml", "r", encoding='utf-8') as f:
@@ -1305,6 +1341,10 @@ def main():
     app.add_handler(CommandHandler("practice", show_daily_practice))
     app.add_handler(CallbackQueryHandler(show_practice_again, pattern="^practice_again$"))
     app.add_handler(CallbackQueryHandler(handle_repeat_practice_selection, pattern="^repeat_practice_"))
+
+    app.add_handler(CallbackQueryHandler(remind_later_handler, pattern="^remind_later$"))
+    app.add_handler(CallbackQueryHandler(skip_today_handler, pattern="^skip_today$"))
+
 
     # Регистрируем статичные меню из YAML (библиотека, статьи, музыка и т.д.)
     register_handlers(app)

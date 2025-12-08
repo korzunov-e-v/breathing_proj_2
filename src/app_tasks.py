@@ -141,13 +141,29 @@ class TaskScheduler:
             try:
                 db = SessionLocal()
                 try:
-                    # Находим пользователей, которые сегодня не практиковались
-                    # и у которых не заморожены напоминания
-                    today = datetime.now().date()
+                    now = datetime.now()
+                    today = now.date()
 
+                    # Сбрасываем счетчики напоминаний для нового дня
+                    # Проверяем всех пользователей, у которых была активна заморозка
+                    users_to_reset = db.query(User).filter(
+                        User.freeze_reminders == True
+                    ).all()
+
+                    for user in users_to_reset:
+                        # Сбрасываем только если последнее напоминание было вчера или раньше
+                        if not user.last_reminder_sent_at or user.last_reminder_sent_at.date() < today:
+                            user.freeze_reminders = False
+                            user.reminder_count_today = 0
+                            user.last_reminder_sent_at = None
+
+                    db.commit()
+
+                    # Находим пользователей, которые сегодня не практиковались
                     users = db.query(User).filter(
                         User.freeze_reminders == False,
                         User.notification_paused == False,
+                        User.practice_time.isnot(None),
                         or_(
                             User.last_practice_at.is_(None),
                             func.date(User.last_practice_at) < today
@@ -163,42 +179,92 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в reminder_scheduler: {e}")
                 await asyncio.sleep(600)
-
     async def _check_and_send_reminder(self, user: User):
         """Проверяет и отправляет напоминание"""
         db = SessionLocal()
         try:
-            # Расписание напоминаний
+            # Расписание напоминаний (часы_ожидания, текст)
             reminder_schedule: List[Tuple[int, str]] = [
                 (1, "Через 1 час после запланированного времени"),
-                (3, "Через 3 часа"),
-                (6, "Через 6 часов"),
-                (24, "На следующий день")
+                (3, "Через 3 часа после запланированного времени"),
+                (6, "Через 6 часов после запланированного времени"),
+                (12, "Через 12 часов после запланированного времени")
             ]
 
             current_reminder = user.reminder_count_today
 
+            # Если все напоминания отправлены - замораживаем
             if current_reminder >= len(reminder_schedule):
                 user.freeze_reminders = True
                 db.commit()
                 return
 
-            # Проверяем, пора ли отправлять следующее напоминание
-            hours_to_wait, message = reminder_schedule[current_reminder]
+            # Получаем запланированное время практики
+            if not user.practice_time:
+                return
 
+            # Преобразуем время практики в datetime для сегодня
+            practice_time_str = user.practice_time
+            try:
+                practice_hour, practice_minute = map(int, practice_time_str.split(':'))
+            except ValueError:
+                return
+
+            now = datetime.now()
+            today_practice_time = datetime(
+                year=now.year,
+                month=now.month,
+                day=now.day,
+                hour=practice_hour,
+                minute=practice_minute
+            )
+
+            # Вычисляем, когда должно быть отправлено текущее напоминание
+            hours_to_wait, message = reminder_schedule[current_reminder]
+            reminder_time = today_practice_time + timedelta(hours=hours_to_wait)
+
+            # Проверяем, настало ли время для напоминания
+            if now < reminder_time:
+                return
+
+            # Проверяем, не отправляли ли уже это напоминание сегодня
             if user.last_reminder_sent_at:
-                time_since_last = datetime.now() - user.last_reminder_sent_at
-                if time_since_last < timedelta(hours=hours_to_wait):
+                # Получаем дату последнего напоминания
+                last_reminder_date = user.last_reminder_sent_at.date()
+
+                # Если сегодня уже отправляли напоминание и номер текущего напоминания совпадает
+                # с тем, сколько уже отправлено - значит уже отправляли это напоминание
+                if last_reminder_date == now.date():
+                    # Определяем, какое по счету было последнее отправленное напоминание
+                    # Для этого смотрим на время последнего напоминания
+                    last_reminder_time = user.last_reminder_sent_at
+
+                    # Вычисляем, какое напоминание было отправлено последним
+                    for i, (hours, _) in enumerate(reminder_schedule):
+                        expected_time = today_practice_time + timedelta(hours=hours)
+                        # Если последнее напоминание было отправлено в +/- 10 минут от ожидаемого времени
+                        if abs((last_reminder_time - expected_time).total_seconds()) < 600:  # 10 минут
+                            # Если этот номер напоминания >= текущему - уже отправляли
+                            if i >= current_reminder:
+                                return
+                            break
+
+            # Проверяем, не практиковался ли пользователь уже после времени, когда должно было быть это напоминание
+            if user.last_practice_at and user.last_practice_at.date() == now.date():
+                if user.last_practice_at > reminder_time - timedelta(minutes=5):
+                    # Пользователь уже практиковался, пропускаем напоминание и увеличиваем счетчик
+                    user.reminder_count_today = current_reminder + 1
+                    db.commit()
                     return
 
             # Отправляем напоминание
             reminder_text = f"""
-🔔 *Напоминание о практике*
+    🔔 *Напоминание о практике*
 
-{message}
+    {message}
 
-Не пропускайте свою практику - она важна для вашего благополучия!
-"""
+    Не пропускайте свою практику - она важна для вашего благополучия!
+    """
 
             await send_text_with_buttons(
                 update=None,
@@ -213,10 +279,12 @@ class TaskScheduler:
             )
 
             # Обновляем счетчик
-            user.reminder_count_today += 1
-            user.last_reminder_sent_at = datetime.now()
+            user.reminder_count_today = current_reminder + 1
+            user.last_reminder_sent_at = now
             db.commit()
 
+        except Exception as e:
+            self.logger.error(f"Ошибка в check_and_send_reminder: {e}")
         finally:
             db.close()
 
@@ -273,8 +341,10 @@ class TaskScheduler:
             keyboard = []
             row = []
             for i, mood in enumerate(moods):
-                row.append({"text": mood.icon + " " + mood.name,
-                            "callback_data": f"log_emotion_{mood.id}"})
+                row.append(
+                    {"text": mood.icon + " " + mood.name,
+                     "callback_data": f"log_emotion_{mood.id}"}
+                )
                 if len(row) == 2:
                     keyboard.append(row)
                     row = []
