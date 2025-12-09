@@ -34,32 +34,78 @@ class TaskScheduler:
             try:
                 now = datetime.now()
                 current_time = now.strftime("%H:%M")
+                today = now.date()
+
+                self.logger.debug(f"Проверка ежедневных уведомлений: {current_time}")
 
                 db = SessionLocal()
                 try:
-                    # Находим пользователей, у которых время практики сейчас или +-1 минута
-                    users = db.query(User).filter(
+                    # Шаг 1: Находим пользователей, у которых время практики сейчас
+                    potential_users = db.query(User).filter(
                         User.practice_time.isnot(None),
-                        User.notification_paused == False,
-                        or_(
-                            User.practice_time == current_time,
-                            User.practice_time == (now - timedelta(minutes=1)).strftime("%H:%M"),
-                            User.practice_time == (now + timedelta(minutes=1)).strftime("%H:%M")
-                        )
+                        User.notification_paused == False
                     ).all()
-                    self.logger.info(f"found for notification {users=}")
 
-                    for user in users:
+                    self.logger.info(f"Всего пользователей с настроенным временем: {len(potential_users)}")
+
+                    users_to_notify = []
+                    skip_reasons = {
+                        'wrong_time': 0,
+                        'already_notified_today': 0,
+                        'no_practice_time': 0,
+                        'paused': 0
+                    }
+
+                    for user in potential_users:
+                        # Проверяем причину пропуска
+                        if user.notification_paused:
+                            skip_reasons['paused'] += 1
+                            continue
+
+                        if not user.practice_time:
+                            skip_reasons['no_practice_time'] += 1
+                            continue
+
+                        # Проверяем, подходит ли время (±1 минута)
+                        user_time = user.practice_time
+                        if not (user_time == current_time or
+                                user_time == (now - timedelta(minutes=1)).strftime("%H:%M") or
+                                user_time == (now + timedelta(minutes=1)).strftime("%H:%M")):
+                            skip_reasons['wrong_time'] += 1
+                            continue
+
                         # Проверяем, не отправили ли уже уведомление сегодня
-                        today = now.date()
                         last_notification = db.query(NotificationLog).filter(
                             NotificationLog.user_id == user.id,
                             NotificationLog.type == NotificationType.daily,
                             func.date(NotificationLog.sent_at) == today
                         ).first()
 
-                        if not last_notification:
-                            await self._send_daily_notification(user)
+                        if last_notification:
+                            skip_reasons['already_notified_today'] += 1
+                            continue
+
+                        users_to_notify.append(user)
+
+                    # Логируем статистику
+                    self.logger.info(
+                        f"Статистика уведомлений ({current_time}): "
+                        f"Всего пользователей: {len(potential_users)}, "
+                        f"К уведомлению: {len(users_to_notify)}, "
+                        f"Пропущено: {sum(skip_reasons.values())} "
+                        f"(приостановлены: {skip_reasons['paused']}, "
+                        f"нет времени: {skip_reasons['no_practice_time']}, "
+                        f"не время: {skip_reasons['wrong_time']}, "
+                        f"уже уведомлены: {skip_reasons['already_notified_today']})"
+                    )
+
+                    # Отправляем уведомления
+                    for user in users_to_notify:
+                        self.logger.info(f"Отправка ежедневного уведомления пользователю {user.tg_id} (время: {user.practice_time})")
+                        await self._send_daily_notification(user)
+
+                    if users_to_notify:
+                        self.logger.info(f"Отправлено {len(users_to_notify)} ежедневных уведомлений")
 
                 finally:
                     db.close()
@@ -67,7 +113,6 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в daily_scheduler: {e}")
                 await asyncio.sleep(300)  # Ждем 5 минут при ошибке
-
     async def _send_daily_notification(self, user: User):
         """Отправка ежедневного уведомления"""
         try:
@@ -144,38 +189,86 @@ class TaskScheduler:
                     now = datetime.now()
                     today = now.date()
 
+                    self.logger.debug(f"Проверка напоминаний: {now.strftime('%H:%M:%S')}")
+
                     # ==================== СБРОС НАПОМИНАНИЙ ====================
-                    # Простая логика: сбрасываем всех в 00:05 каждый день
+                    reset_count = 0
                     if now.hour == 0 and now.minute == 5:
                         # В 00:05 каждый день сбрасываем ВСЕХ пользователей с заморозкой
-                        reset_users = db.query(User).filter(
+                        users_with_freeze = db.query(User).filter(
                             User.freeze_reminders == True
                         ).all()
 
-                        reset_count = 0
-                        for user in reset_users:
+                        reset_count = len(users_with_freeze)
+                        for user in users_with_freeze:
                             user.freeze_reminders = False
                             user.reminder_count_today = 0
-                            reset_count += 1
 
                         if reset_count > 0:
                             db.commit()
                             self.logger.info(f"Сброшены напоминания для {reset_count} пользователей в 00:05")
 
                     # ==================== ОТПРАВКА НАПОМИНАНИЙ ====================
-                    # Находим пользователей, которые сегодня не практиковались и без заморозки напоминаний
-                    users = db.query(User).filter(
-                        User.freeze_reminders == False,
+                    # Находим ВСЕХ потенциальных пользователей
+                    all_users = db.query(User).filter(
                         User.notification_paused == False,
-                        User.practice_time.isnot(None),
-                        or_(
-                            User.last_practice_at.is_(None),
-                            func.date(User.last_practice_at) < today
-                        )
+                        User.practice_time.isnot(None)
                     ).all()
 
-                    for user in users:
-                        await self._check_and_send_reminder(user)
+                    self.logger.info(f"Всего активных пользователей: {len(all_users)}")
+
+                    skip_stats = {
+                        'freeze_reminders': 0,
+                        'practiced_today': 0,
+                        'no_practice_time': 0,
+                        'paused': 0
+                    }
+
+                    users_for_reminders = []
+
+                    for user in all_users:
+                        # Проверяем причины пропуска
+                        if user.freeze_reminders:
+                            skip_stats['freeze_reminders'] += 1
+                            continue
+
+                        if user.notification_paused:
+                            skip_stats['paused'] += 1
+                            continue
+
+                        if not user.practice_time:
+                            skip_stats['no_practice_time'] += 1
+                            continue
+
+                        # Проверяем, практиковался ли сегодня
+                        if user.last_practice_at and user.last_practice_at.date() == today:
+                            skip_stats['practiced_today'] += 1
+                            continue
+
+                        users_for_reminders.append(user)
+
+                    # Логируем статистику
+                    self.logger.info(
+                        f"Статистика напоминаний: "
+                        f"Всего: {len(all_users)}, "
+                        f"На проверку: {len(users_for_reminders)}, "
+                        f"Пропущено: {sum(skip_stats.values())} "
+                        f"(заморожены: {skip_stats['freeze_reminders']}, "
+                        f"практиковались: {skip_stats['practiced_today']}, "
+                        f"нет времени: {skip_stats['no_practice_time']}, "
+                        f"приостановлены: {skip_stats['paused']})"
+                    )
+
+                    # Отправляем напоминания
+                    sent_count = 0
+                    for user in users_for_reminders:
+                        if await self._check_and_send_reminder(user):
+                            sent_count += 1
+
+                    if sent_count > 0:
+                        self.logger.info(f"Отправлено {sent_count} напоминаний")
+                    else:
+                        self.logger.debug("Напоминаний для отправки нет")
 
                 finally:
                     db.close()
@@ -188,7 +281,8 @@ class TaskScheduler:
         """Проверяет и отправляет напоминание"""
         # Проверяем, не заморожены ли напоминания
         if user.freeze_reminders:
-            return
+            self.logger.debug(f"Пользователь {user.tg_id}: напоминания заморожены")
+            return False
 
         db = SessionLocal()
         try:
@@ -287,13 +381,17 @@ class TaskScheduler:
             user.last_reminder_sent_at = now
             db.commit()
 
-            self.logger.info(f"Отправлено напоминание #{current_reminder + 1} пользователю {user.tg_id}")
+            self.logger.info(
+                f"Отправлено напоминание #{current_reminder + 1} пользователю {user.tg_id} (время практики: {user.practice_time})"
+                )
+            return True
 
         except Exception as e:
-            self.logger.error(f"Ошибка в check_and_send_reminder: {e}")
+            self.logger.error(f"Ошибка в check_and_send_reminder для пользователя {user.tg_id}: {e}")
+            return False
         finally:
             db.close()
-            
+
     async def _emotion_notification_scheduler(self):
         """Уведомления для дневника эмоций (в середине дня)"""
         while True:
@@ -305,19 +403,42 @@ class TaskScheduler:
                 if 14 <= now.hour <= 16:
                     db = SessionLocal()
                     try:
-                        # Находим пользователей, которые сегодня еще не записывали эмоции
                         today = now.date()
+                        self.logger.debug(f"Проверка уведомлений об эмоциях: {now.strftime('%H:%M')}")
 
+                        # Все активные пользователи
+                        all_users = db.query(User).filter(
+                            User.notification_paused == False
+                        ).all()
+
+                        self.logger.info(f"Всего активных пользователей для уведомлений об эмоциях: {len(all_users)}")
+
+                        # Пользователи, которые сегодня уже записывали эмоции
                         users_with_emotions = db.query(Emotion.user_id).filter(
                             func.date(Emotion.created_at) == today
                         ).subquery()
 
-                        users = db.query(User).filter(
-                            User.notification_paused == False,
-                            ~User.id.in_(users_with_emotions)
-                        ).all()
+                        skip_stats = {
+                            'already_logged_today': 0,
+                            'already_notified_today': 0,
+                            'paused': 0
+                        }
 
-                        for user in users:
+                        users_to_notify = []
+
+                        for user in all_users:
+                            if user.notification_paused:
+                                skip_stats['paused'] += 1
+                                continue
+
+                            # Проверяем, записывал ли сегодня эмоции
+                            if db.query(Emotion).filter(
+                                Emotion.user_id == user.id,
+                                func.date(Emotion.created_at) == today
+                            ).first():
+                                skip_stats['already_logged_today'] += 1
+                                continue
+
                             # Проверяем, не отправляли ли уже уведомление сегодня
                             last_emotion_notif = db.query(NotificationLog).filter(
                                 NotificationLog.user_id == user.id,
@@ -325,8 +446,34 @@ class TaskScheduler:
                                 func.date(NotificationLog.sent_at) == today
                             ).first()
 
-                            if not last_emotion_notif:
+                            if last_emotion_notif:
+                                skip_stats['already_notified_today'] += 1
+                                continue
+
+                            users_to_notify.append(user)
+
+                        # Логируем статистику
+                        self.logger.info(
+                            f"Статистика уведомлений об эмоциях: "
+                            f"Всего: {len(all_users)}, "
+                            f"К уведомлению: {len(users_to_notify)}, "
+                            f"Пропущено: {sum(skip_stats.values())} "
+                            f"(уже записали: {skip_stats['already_logged_today']}, "
+                            f"уже уведомлены: {skip_stats['already_notified_today']}, "
+                            f"приостановлены: {skip_stats['paused']})"
+                        )
+
+                        # Отправляем уведомления
+                        sent_count = 0
+                        for user in users_to_notify:
+                            try:
                                 await self._send_emotion_notification(user)
+                                sent_count += 1
+                            except Exception as e:
+                                self.logger.error(f"Ошибка отправки уведомления об эмоциях пользователю {user.tg_id}: {e}")
+
+                        if sent_count > 0:
+                            self.logger.info(f"Отправлено {sent_count} уведомлений об эмоциях")
 
                     finally:
                         db.close()
@@ -334,7 +481,6 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в emotion_notification_scheduler: {e}")
                 await asyncio.sleep(600)
-
     async def _send_emotion_notification(self, user: User):
         """Отправка уведомления для записи эмоции"""
         try:
