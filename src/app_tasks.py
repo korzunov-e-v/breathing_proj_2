@@ -144,25 +144,28 @@ class TaskScheduler:
                     now = datetime.now()
                     today = now.date()
 
-                    # Сбрасываем счетчики напоминаний для нового дня
-                    # Проверяем всех пользователей, у которых была активна заморозка
-                    users_to_reset = db.query(User).filter(
-                        User.freeze_reminders == True
-                    ).all()
+                    # ==================== СБРОС НАПОМИНАНИЙ ====================
+                    # Простая логика: сбрасываем всех в 00:05 каждый день
+                    if now.hour == 0 and now.minute == 5:
+                        # В 00:05 каждый день сбрасываем ВСЕХ пользователей с заморозкой
+                        reset_users = db.query(User).filter(
+                            User.freeze_reminders == True
+                        ).all()
 
-                    for user in users_to_reset:
-                        # Сбрасываем только если последнее напоминание было вчера или раньше
-                        if not user.last_reminder_sent_at or user.last_reminder_sent_at.date() < today:
+                        reset_count = 0
+                        for user in reset_users:
                             user.freeze_reminders = False
                             user.reminder_count_today = 0
-                            user.last_reminder_sent_at = None
+                            reset_count += 1
 
-                    db.commit()
+                        if reset_count > 0:
+                            db.commit()
+                            self.logger.info(f"Сброшены напоминания для {reset_count} пользователей в 00:05")
 
-                    # Находим пользователей, которые сегодня не практиковались и
-                    # не заморожены напоминания у каких
+                    # ==================== ОТПРАВКА НАПОМИНАНИЙ ====================
+                    # Находим пользователей, которые сегодня не практиковались и без заморозки напоминаний
                     users = db.query(User).filter(
-                        User.freeze_reminders == False,  # Добавляем эту проверку
+                        User.freeze_reminders == False,
                         User.notification_paused == False,
                         User.practice_time.isnot(None),
                         or_(
@@ -245,9 +248,9 @@ class TaskScheduler:
                     last_reminder_time = user.last_reminder_sent_at
                     expected_time = today_practice_time + timedelta(hours=hours_to_wait)
 
-                    # Если последнее напоминание было отправлено в пределах 10 минут от ожидаемого времени
+                    # Если последнее напоминание было отправлено в пределах 30 минут от ожидаемого времени
                     # для текущего счетчика, значит это напоминание уже отправлено
-                    if abs((last_reminder_time - expected_time).total_seconds()) < 600:  # 10 минут
+                    if abs((last_reminder_time - expected_time).total_seconds()) < 1800:  # 30 минут
                         return
 
             # Проверяем, не практиковался ли пользователь уже после времени, когда должно было быть это напоминание
@@ -284,11 +287,13 @@ class TaskScheduler:
             user.last_reminder_sent_at = now
             db.commit()
 
+            self.logger.info(f"Отправлено напоминание #{current_reminder + 1} пользователю {user.tg_id}")
+
         except Exception as e:
             self.logger.error(f"Ошибка в check_and_send_reminder: {e}")
         finally:
             db.close()
-
+            
     async def _emotion_notification_scheduler(self):
         """Уведомления для дневника эмоций (в середине дня)"""
         while True:

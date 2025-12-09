@@ -1350,7 +1350,6 @@ def main():
 
     # После запуска бота запускаем планировщик
     async def on_startup(application):
-        logging.info("Запуск планировщика задач...")
         asyncio.create_task(start_scheduler(application))
 
     app.post_init = on_startup
