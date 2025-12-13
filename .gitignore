@@ -270,3 +270,4 @@ temp
 temp.py
 project_code.txt
 code.sh
+.env.docker
