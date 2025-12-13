@@ -90,9 +90,9 @@ class NotificationLogView(BaseSecureModelView):
         'user': lambda v, c, m, p: f"{m.user.username} (ID: {m.user.tg_id})" if m.user else None,
         'sent_at': lambda v, c, m, p: m.sent_at.strftime('%Y-%m-%d %H:%M') if m.sent_at else ''
     }
-    can_create = False
-    can_edit = False
-    can_delete = False
+    # can_create = False
+    # can_edit = False
+    # can_delete = False
 
 
 class PracticeLogView(BaseSecureModelView):
