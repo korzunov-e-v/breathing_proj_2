@@ -27,6 +27,8 @@ services:
         volumes:
             - ./admin:/app/admin
             - ./src:/app/src
+        env_file:
+            - .env.docker
         environment:
             POSTGRES_DB: breathing_db
             POSTGRES_USER: postgres
