@@ -101,7 +101,8 @@ class TaskScheduler:
 
                     # Отправляем уведомления
                     for user in users_to_notify:
-                        self.logger.info(f"Отправка ежедневного уведомления пользователю {user.tg_id} (время: {user.practice_time})")
+                        self.logger.info(
+                            f"Отправка ежедневного уведомления пользователю {user.tg_id} (время: {user.practice_time})")
                         await self._send_daily_notification(user)
 
                     if users_to_notify:
@@ -113,6 +114,7 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в daily_scheduler: {e}")
                 await asyncio.sleep(300)  # Ждем 5 минут при ошибке
+
     async def _send_daily_notification(self, user: User):
         """Отправка ежедневного уведомления"""
         try:
@@ -125,9 +127,16 @@ class TaskScheduler:
             # Случайная фраза дня
             db = SessionLocal()
             try:
-                phrase = db.query(Phrase).filter(
-                    Phrase.for_premium == (user.subscribed if hasattr(user, 'subscribed') else False)
-                ).order_by(func.random()).first()
+                phrases = db.query(Phrase).order_by(func.random())
+                premium_phrases = None
+                if user.subscribed:
+                    premium_phrases = phrases.filter(
+                        Phrase.for_premium == (user.subscribed if hasattr(user, 'subscribed') else False)
+                    ).all()
+                if premium_phrases:
+                    phrase = premium_phrases.first()
+                else:
+                    phrase = phrases.first()
 
                 phrase_text = f"\n\n💭 *Фраза дня:*\n{phrase.text}" if phrase else ""
             finally:
@@ -262,7 +271,7 @@ class TaskScheduler:
                     # Отправляем напоминания
                     sent_count = 0
                     for user in users_for_reminders:
-                        if await self._check_and_send_reminder(user):
+                        if await self._check_and_send_reminder(user.id):
                             sent_count += 1
 
                     if sent_count > 0:
@@ -277,14 +286,14 @@ class TaskScheduler:
                 self.logger.error(f"Ошибка в reminder_scheduler: {e}")
                 await asyncio.sleep(600)
 
-    async def _check_and_send_reminder(self, user: User):
+    async def _check_and_send_reminder(self, user_id: int):
         """Проверяет и отправляет напоминание"""
         # Проверяем, не заморожены ли напоминания
+        db = SessionLocal()
+        user = db.query(User).filter(User.id == user_id).first()
         if user.freeze_reminders:
             self.logger.debug(f"Пользователь {user.tg_id}: напоминания заморожены")
             return False
-
-        db = SessionLocal()
         try:
             # Расписание напоминаний (часы_ожидания, текст)
             reminder_schedule: List[Tuple[int, str]] = [
@@ -383,7 +392,7 @@ class TaskScheduler:
 
             self.logger.info(
                 f"Отправлено напоминание #{current_reminder + 1} пользователю {user.tg_id} (время практики: {user.practice_time})"
-                )
+            )
             return True
 
         except Exception as e:
@@ -433,8 +442,8 @@ class TaskScheduler:
 
                             # Проверяем, записывал ли сегодня эмоции
                             if db.query(Emotion).filter(
-                                Emotion.user_id == user.id,
-                                func.date(Emotion.created_at) == today
+                                    Emotion.user_id == user.id,
+                                    func.date(Emotion.created_at) == today
                             ).first():
                                 skip_stats['already_logged_today'] += 1
                                 continue
@@ -470,7 +479,8 @@ class TaskScheduler:
                                 await self._send_emotion_notification(user)
                                 sent_count += 1
                             except Exception as e:
-                                self.logger.error(f"Ошибка отправки уведомления об эмоциях пользователю {user.tg_id}: {e}")
+                                self.logger.error(
+                                    f"Ошибка отправки уведомления об эмоциях пользователю {user.tg_id}: {e}")
 
                         if sent_count > 0:
                             self.logger.info(f"Отправлено {sent_count} уведомлений об эмоциях")
@@ -481,6 +491,7 @@ class TaskScheduler:
             except Exception as e:
                 self.logger.error(f"Ошибка в emotion_notification_scheduler: {e}")
                 await asyncio.sleep(600)
+
     async def _send_emotion_notification(self, user: User):
         """Отправка уведомления для записи эмоции"""
         try:

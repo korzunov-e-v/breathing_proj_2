@@ -1350,8 +1350,8 @@ def main():
 
     # После запуска бота запускаем планировщик
     async def on_startup(application):
-        # asyncio.create_task(start_scheduler(application))  # TODO: notification
-        pass
+        asyncio.create_task(start_scheduler(application))  # TODO: notification
+        # pass
 
     app.post_init = on_startup
 
