@@ -18,8 +18,8 @@ from admin.views import (
     UserAchievementView,
     UserView,
 )
-from src.database import SessionLocal
-from src.models import (
+from src.db.database import SessionLocal
+from src.db.models import (
     Achievement,
     Article,
     Emotion,

@@ -2,6 +2,9 @@
 from typing import Any, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes
+
+from src.log import log_interaction
 
 
 async def send_text_with_buttons(
@@ -47,10 +50,42 @@ async def send_text_with_buttons(
         if chat_id is None and update is not None and update.effective_chat is not None:
             chat_id = update.effective_chat.id
 
-        # Send via provided bot (from Application or Context)
+        # Send it via the provided bot (from Application or Context)
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=reply_markup,
             parse_mode=parse_mode
         )
+
+
+def _detect_type(media_file: str) -> str:
+    s = str(media_file).lower()
+    if s.endswith(".mp4") or s.startswith("baac"):
+        return "video"
+    if s.endswith(".mp3") or s.startswith("caac"):
+        return "audio"
+    return "photo"
+
+
+async def receive_media(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик медиа-файлов с логированием и возвратом file_id"""
+    await log_interaction(update, "MEDIA_RECEIVED")
+
+    msg = update.message
+    if msg.photo:
+        file_id = msg.photo[-1].file_id
+        await msg.reply_text(f'Photo file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML', parse_mode='HTML')
+    elif msg.video:
+        file_id = msg.video.file_id
+        await msg.reply_text(f"Video file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML", parse_mode="HTML")
+    elif msg.audio:
+        file_id = msg.audio.file_id
+        await msg.reply_text(f"Audio file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML", parse_mode="HTML")
+    elif msg.document:
+        file_id = msg.document.file_id
+        await msg.reply_text(f"Document file_id: <code>{file_id}</code>\n\nИспользуйте этот ID в YAML",
+                             parse_mode="HTML")
+    else:
+        await msg.reply_text(
+            "Пришлите фото, видео, аудио или документ, чтобы получить их file_id для использования в меню.")

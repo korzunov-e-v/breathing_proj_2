@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.database import Base
+from src.db.database import Base
 
 
 class FavoriteItemType(enum.Enum):

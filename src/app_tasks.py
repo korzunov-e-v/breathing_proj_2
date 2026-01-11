@@ -1,14 +1,13 @@
 # src/app_tasks.py
 import asyncio
 from datetime import datetime, timedelta
-import logging
 from typing import List, Tuple
 
-from sqlalchemy import func, or_
-from telegram.ext import ContextTypes
+import pytz
+from sqlalchemy import func
 
-from src.database import SessionLocal
-from src.models import Emotion, Mood, NotificationLog, NotificationType, Phrase, User
+from src.db.database import SessionLocal
+from src.db.models import Emotion, Mood, NotificationLog, NotificationType, Phrase, User
 from src.telegram_utils import send_text_with_buttons
 
 
@@ -32,7 +31,7 @@ class TaskScheduler:
         """Ежедневные уведомления в установленное время"""
         while True:
             try:
-                now = datetime.now()
+                now = datetime.now(pytz.timezone('Europe/Moscow'))
                 current_time = now.strftime("%H:%M")
                 today = now.date()
 
@@ -195,7 +194,7 @@ class TaskScheduler:
             try:
                 db = SessionLocal()
                 try:
-                    now = datetime.now()
+                    now = datetime.now(pytz.timezone('Europe/Moscow'))
                     today = now.date()
 
                     self.logger.debug(f"Проверка напоминаний: {now.strftime('%H:%M:%S')}")
@@ -322,7 +321,7 @@ class TaskScheduler:
             except ValueError:
                 return
 
-            now = datetime.now()
+            now = datetime.now(pytz.timezone('Europe/Moscow'))
             today_practice_time = datetime(
                 year=now.year,
                 month=now.month,
@@ -407,7 +406,7 @@ class TaskScheduler:
             try:
                 await asyncio.sleep(300)  # Проверяем каждые 5 минут
 
-                now = datetime.now()
+                now = datetime.now(pytz.timezone('Europe/Moscow'))
                 # Время для уведомлений об эмоциях: 14:00-16:00
                 if 14 <= now.hour <= 16:
                     db = SessionLocal()
