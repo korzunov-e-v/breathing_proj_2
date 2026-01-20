@@ -90,4 +90,6 @@ main-menu:
             - { text: "08:00", goto: set_time_08:00 }
             - { text: "09:00", goto: set_time_09:00 }
             - { text: "10:00", goto: set_time_10:00 }
+            - { text: "11:00", goto: set_time_11:00 }
+            - { text: "12:00", goto: set_time_12:00 }
             - { text: "⬅️ Назад", goto: settings }

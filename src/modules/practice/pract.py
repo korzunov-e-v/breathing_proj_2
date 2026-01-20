@@ -254,70 +254,40 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         if not practice:
             # Если практики нет - пользователь прошел все
-            text = """
-🎉 *Поздравляем!*
-
-Вы завершили все доступные практики.
-
-Что дальше?
-"""
+            text = ("🎉 *Поздравляем!*\n"
+                    "\n"
+                    "Вы завершили все доступные практики.\n"
+                    "\n"
+                    "Что дальше?")
             buttons = [
                 {"text": "🔄 Пройти снова", "goto": "practice_again"},
                 {"text": "📚 Библиотека", "goto": "library"},
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
 
-            await replace_menu_message(
-                chat_id=chat_id,
-                context=context,
-                text=text,
-                buttons=buttons,
-                media_files=[],
-            )
-            return
-
         # Проверяем доступ к премиум контенту
-        if practice.premium and not user.subscribed:
-            text = f"""
-🔒 *Премиум контент*
-
-Практика дня {user.current_day} доступна только для подписчиков.
-
-{practice.intro_text}
-"""
-
+        elif practice.premium and not user.subscribed:
+            text = (f"🔒 *Премиум контент*\n\n"
+                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"
+                    f"{practice.intro_text}\n"
+                    )
             buttons = [
                 {"text": "💳 Выбрать подписку", "goto": "subscription_offer"},
                 {"text": "🔄 Повторить пройденные", "goto": "practice_again"},
                 {"text": "⬅️ Главное меню", "goto": "menu"}
             ]
-
-            await replace_menu_message(
-                chat_id=chat_id,
-                context=context,
-                text=text,
-                buttons=buttons,
-                media_files=[],
-            )
-            return
-
-        # ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - показываем практику
-        mood_keyboard = await get_moods_keyboard()
-
-        if query:
-            await query.edit_message_text(
-                f"🧘 *Практика дня {user.current_day}*\n\nКакое у вас сейчас настроение?",
-                reply_markup=mood_keyboard,
-                parse_mode='Markdown'
-            )
         else:
-            mood_message = await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🧘 *Практика дня {user.current_day}*\n\nКакое у вас сейчас настроение?",
-                reply_markup=mood_keyboard,
-                parse_mode='Markdown'
-            )
-            context.user_data['mood_message_id'] = mood_message.message_id
+            # ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - показываем практику
+            text = (f"🧘 *Практика дня {user.current_day}*\n\n"
+                    f"Какое у вас сейчас настроение?")
+            buttons = await get_moods_keyboard(buttons_only=True)
+        await replace_menu_message(
+            chat_id=chat_id,
+            context=context,
+            text=text,
+            buttons=buttons,
+            media_files=[],  # без медиа на этом экране
+        )
 
     except Exception as e:
         logging.error(f"Ошибка в show_daily_practice: {e}")
