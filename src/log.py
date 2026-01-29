@@ -4,13 +4,21 @@ import sys
 from telegram import Update
 
 
+class DefaultExtraFilter(logging.Filter):
+    def filter(self, record):
+        for k in ("user_id", "chat_id", "callback_data"):
+            if not hasattr(record, k):
+                setattr(record, k, "-")
+        return True
+
+
 async def log_interaction(update: Update, interaction_type: str, additional_info: str = ""):
     """Логирует все взаимодействия с ботом"""
     user = update.effective_user
     chat = update.effective_chat
 
     user_info = f"UserID: {user.id}, Username: @{user.username}" if user else "Unknown user"
-    chat_info = f"ChatID: {chat.id}, Type: {chat.type}" if chat else "Unknown chat"
+    chat_info = f"ChatID: {chat.id}" if chat else "Unknown chat"
 
     if update.message:
         message_info = f"MessageID: {update.message.message_id}, Text: '{update.message.text}'"
@@ -24,36 +32,46 @@ async def log_interaction(update: Update, interaction_type: str, additional_info
         f"{message_info} | {additional_info}"
     )
 
-    logging.info(log_message)
+    app_log = logging.getLogger("app")
+    app_log.info(log_message)
 
 
-# Настройка расширенного логирования
 def setup_logging():
-    """Настраивает логирование в файл и stdout"""
-    # Создаем логгер
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers.clear()
 
-    # Форматтер для логов
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+    # 1) Формат для APP (без extra)
+    app_fmt = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Обработчик для файла
-    file_handler = logging.FileHandler('bot.log', encoding='utf-8')
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(formatter)
+    # 2) Формат для ROUTER (с extra)
+    router_fmt = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s "
+        "| user_id=%(user_id)s chat_id=%(chat_id)s callback_data=%(callback_data)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
-    # Обработчик для stdout
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(formatter)
+    # --- handlers ---
+    stream = logging.StreamHandler(sys.stdout)
+    stream.setLevel(logging.INFO)
+    stream.setFormatter(app_fmt)  # по умолчанию app-формат
 
-    # Очищаем существующие обработчики и добавляем новые
-    logger.handlers.clear()
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
+    root.addHandler(stream)
 
-    # Устанавливаем уровень для httpx
+    # --- router logger: отдельный handler с другим форматтером ---
+    router_logger = logging.getLogger("router")
+    router_logger.propagate = False  # чтобы не дублировалось в root
+    router_stream = logging.StreamHandler(sys.stdout)
+    router_stream.setLevel(logging.INFO)
+    router_stream.setFormatter(router_fmt)
+    router_stream.addFilter(DefaultExtraFilter())
+    router_logger.addHandler(router_stream)
+
+    # (опционально) app logger явно
+    app_logger = logging.getLogger("app")
+    app_logger.propagate = True  # пусть идёт в root stream/app_fmt
+
     logging.getLogger("httpx").setLevel(logging.WARNING)

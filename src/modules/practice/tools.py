@@ -9,11 +9,11 @@ async def get_moods_keyboard(buttons_only=False):
     db = SessionLocal()
     try:
         moods = db.query(Mood).all()
+        if buttons_only:
+            return  [{"text": mood.name, "goto": f"mood_{mood.id}"} for mood in moods]
         keyboard = []
         for mood in moods:
             keyboard.append([InlineKeyboardButton(mood.name, callback_data=f"mood_{mood.id}")])
-        if buttons_only:
-            return keyboard
         return InlineKeyboardMarkup(keyboard)
     finally:
         db.close()

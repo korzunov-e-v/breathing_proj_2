@@ -7,8 +7,17 @@ from telegram.ext import ContextTypes
 
 from src.telegram_utils import _detect_type
 
-MENU_KEY_ID = "menu_message_id"
+SCREEN_KEY_ID = "screen_message_id"
 
+async def cleanup_practice_messages(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+    ids = context.user_data.pop("practice_message_ids", [])
+    for mid in ids:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=mid)
+        except BadRequest:
+            pass
+        except Exception:
+            pass
 
 async def replace_menu_message(
         *,
@@ -26,7 +35,7 @@ async def replace_menu_message(
     media_file = media_files[0] if media_files else None
 
     # 1) удалить предыдущее меню
-    old_id = context.user_data.get(MENU_KEY_ID)
+    old_id = context.user_data.get(SCREEN_KEY_ID)
     if old_id:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=old_id)
@@ -78,49 +87,72 @@ async def replace_menu_message(
         )
 
     # 3) сохранить id нового меню
-    context.user_data[MENU_KEY_ID] = msg.message_id
+    context.user_data[SCREEN_KEY_ID] = msg.message_id
     return msg.message_id
 
 
-def get_menu_data(menu_name: str) -> dict:
-    """Получает данные меню из YAML по имени"""
-    try:
-        with open("data/menu.yaml", "r", encoding='utf-8') as f:
-            data = yaml.safe_load(f)
+async def replace_screen(
+    *,
+    chat_id: int,
+    context,
+    text: str,
+    reply_markup,
+    media=None,
+    parse_mode="Markdown",
+):
+    old_id = context.user_data.get(SCREEN_KEY_ID)
+    if old_id:
+        try:
+            await context.bot.delete_message(chat_id, old_id)
+        except:
+            pass
 
-        logging.info(f"Ищем меню: {menu_name}")
-        logging.info(f"Доступные меню: {list(data['main-menu'].keys())}")
-
-        if menu_name not in data["main-menu"]:
-            logging.error(f"Меню '{menu_name}' не найдено в YAML")
-            return {"text": f"Меню '{menu_name}' не найдено", "buttons": []}
-
-        menu_data = data["main-menu"][menu_name]
-        logging.info(f"Меню '{menu_name}' найдено: {menu_data}")
-        return menu_data
-
-    except Exception as e:
-        logging.error(f"Error loading menu {menu_name}: {e}")
-        return {"text": f"Ошибка загрузки меню: {e}", "buttons": []}
-
-
-async def show_menu_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE, menu_name: str, query=None):
-    """Показывает меню по имени из YAML с поддержкой медиа"""
-    if query:
-        await query.answer()
-        chat_id = query.message.chat.id
+    if media:
+        msg = await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=media,
+            caption=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+        )
     else:
-        chat_id = update.effective_chat.id
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+        )
 
-    menu_cfg = get_menu_data(menu_name)
-    text = menu_cfg["text"]
-    buttons = menu_cfg.get("buttons", [])
-    media_files = menu_cfg.get("media") or menu_cfg.get("images") or []
+    context.user_data[SCREEN_KEY_ID] = msg.message_id
 
-    await replace_menu_message(
+
+async def show_main_menu(update, context):
+    chat_id = update.effective_chat.id
+    await cleanup_practice_messages(chat_id, context)
+
+    context.user_data.pop('mood_before', None)
+    context.user_data.pop('mood_after', None)
+    context.user_data.pop('feedback_rating', None)
+    context.user_data.pop('feedback_comment', None)
+    context.user_data.pop('waiting_for_comment', None)
+    context.user_data.pop('selected_practice_id', None)
+    context.user_data.pop('is_repeat', None)
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🧘 Практика дня", callback_data="daily_practice")],
+        [InlineKeyboardButton("🔄 Пройти снова", callback_data="practice_again")],
+        [InlineKeyboardButton("📚 Библиотека", callback_data="library")],
+        [InlineKeyboardButton("📊 Аналитика", callback_data="analytics")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="settings")],
+    ])
+
+    await replace_screen(
         chat_id=chat_id,
         context=context,
-        text=text,
-        buttons=buttons,
-        media_files=media_files,
+        text=(
+            "🧘 *Ваше пространство для дыхания*\n\n"
+            "Здесь вы найдете практики, которые помогут обрести гармонию и спокойствие."
+        ),
+        reply_markup=keyboard,
+        media="AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ",
     )

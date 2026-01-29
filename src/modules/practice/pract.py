@@ -7,9 +7,10 @@ from telegram.ext import ContextTypes
 from src.db.database import SessionLocal
 from src.db.models import Practice, PracticeLog, User
 from src.log import log_interaction
-from src.modules.menu_renderer import replace_menu_message, show_menu_by_name
+from src.modules.menu_renderer import replace_menu_message, show_main_menu
 from src.modules.practice.tools import get_moods_keyboard
 
+PRACTICE_MSG_IDS_KEY = "practice_message_ids"
 
 async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает содержание практики после выбора настроения"""
@@ -42,29 +43,32 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         # Показываем практику
-        text = f"""
-🧘 *Практика {practice_source} {practice_day}*
+        text = (
+            f"🧘 *Практика {practice_source} {practice_day}*\n"
+            f"\n"
+            f"{practice.intro_text}\n"
+            f"\n"
+            f"Длительность: ~5 минут\n"
+            f"\n"
+            f"Готовы начать?\n"
+        )
 
-{practice.intro_text}
-
-Длительность: ~5 минут
-
-Готовы начать?
-"""
-
+        practice_msg_ids = context.user_data.setdefault("practice_message_ids", [])
         # Если есть аудио - отправляем его
         if practice.audio_file_id:
             try:
-                await context.bot.send_audio(
+                audio_msg = await context.bot.send_audio(
                     chat_id=chat_id,
                     audio=practice.audio_file_id,
                     caption="🎧 Аудио для практики"
                 )
+                practice_msg_ids.append(audio_msg.message_id)
             except Exception as e:
                 logging.error(f"Ошибка отправки аудио: {e}")
 
         # Отправляем текст практики
-        await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+        text_msg = await context.bot.send_message(chat_id, text, parse_mode='Markdown')
+        practice_msg_ids.append(text_msg.message_id)
 
         # Сразу показываем меню завершения
         buttons = [
@@ -186,7 +190,8 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown')
 
             # Показываем главное меню
-            await show_menu_by_name(update, context, "menu", query=update.callback_query)
+            practice_msg_ids = context.user_data.pop("practice_message_ids", None)
+            await show_main_menu(update, context)
         else:
             await message_func("Пользователь не найден")
     except Exception as e:
@@ -226,14 +231,11 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         if today_practice:
             # Пользователь уже выполнил практику сегодня
             practice = db.query(Practice).filter(Practice.id == today_practice.practice_id).first()
-
-            text = f"""
-✅ *Вы уже выполнили практику сегодня*
-
-🧘 Сегодня вы прошли: День {practice.day_number if practice else '?'} - {practice.intro_text[:100] + '...' if practice and practice.intro_text else 'практику'}
-
-Вы можете повторить пройденные практики через меню "🔄 Пройти снова"
-"""
+            text = (f"✅ *Вы уже выполнили практику сегодня*\n"
+                    f"\n"
+                    f"🧘 Сегодня вы прошли: День {practice.day_number if practice else '?'} - {practice.intro_text[:100] + '...' if practice and practice.intro_text else 'практику'}\n"
+                    f"\n"
+                    f'Вы можете повторить пройденные практики через меню "🔄 Пройти снова"')
             buttons = [
                 {"text": "🔄 Пройти снова", "goto": "practice_again"},
                 {"text": "📊 Моя статистика", "goto": "analytics"},
