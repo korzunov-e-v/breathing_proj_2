@@ -100,6 +100,8 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
     mood_before = context.user_data.get('mood_before')
     mood_after = context.user_data.get('mood_after')
     rating = context.user_data.get('feedback_rating')
+    comment = context.user_data.get('feedback_comment')
+    ai_reply = context.user_data.get("feedback_ai_reply")
     has_comment = bool(context.user_data.get('feedback_comment'))
 
     await log_interaction(
@@ -167,8 +169,13 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             rating = context.user_data.get('feedback_rating')
             if rating:
                 completion_text += f"Спасибо за оценку *{rating}/10*! "
-            if context.user_data.get('feedback_comment'):
-                completion_text += "И за ваш комментарий! "
+            if comment:
+                if ai_reply:
+                    completion_text += "\n\n🧘 *Ответ на ваш комментарий:*\n"
+                    completion_text += ai_reply
+                else:
+                    # фоллбек, если OpenRouter не отработал/не успел/упал
+                    completion_text += "\n\n💬 Спасибо за комментарий!"
 
             if context.user_data.get('is_repeat'):
                 completion_text += "🔄\n\nПрактика повторно завершена!"
@@ -180,6 +187,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             context.user_data.pop('mood_after', None)
             context.user_data.pop('feedback_rating', None)
             context.user_data.pop('feedback_comment', None)
+            context.user_data.pop('feedback_ai_reply', None)
             context.user_data.pop('waiting_for_comment', None)
             context.user_data.pop('selected_practice_id', None)
             context.user_data.pop('is_repeat', None)

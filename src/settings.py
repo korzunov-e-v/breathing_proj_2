@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     admin_tg_ids: Optional[list[int]] = Field(None)
 
     openrouter_token: Optional[str] = Field(None)
+    openrouter_comment_prompt: str = Field(
+        "Ты эмпатичный ассистент. Ответь на комментарий пользователя кратко, по делу и поддерживающе."
+    )
     openai_api_key: Optional[str] = Field(None)
 
     def model_post_init(self, context: Optional[Any]) -> None:

@@ -17,6 +17,7 @@ from src.db.models import User
 from src.log import log_interaction, setup_logging
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import send_onboarding
+from src.modules.practice.rate import handle_comment_text
 from src.modules.settings.time import handle_change_time
 from src.router import router
 from src.settings import settings
@@ -65,6 +66,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
     app.add_handler(CallbackQueryHandler(router))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text), group=104, )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_change_time), group=104, )
 
     # После запуска бота запускаем планировщик
