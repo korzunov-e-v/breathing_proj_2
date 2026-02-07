@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -8,49 +9,6 @@ from src.log import log_interaction
 from src.modules.llm.openrouter_client import generate_comment_reply, OpenRouterError
 from src.modules.practice.pract import handle_practice_completion
 from src.settings import settings
-
-
-async def get_rating_keyboard():
-    """Создает клавиатуру для оценки 1-10"""
-    keyboard = []
-    # Первый ряд: 1-5
-    row1 = [InlineKeyboardButton(str(i), callback_data=f"rating_{i}") for i in range(1, 6)]
-    # Второй ряд: 6-10
-    row2 = [InlineKeyboardButton(str(i), callback_data=f"rating_{i}") for i in range(6, 11)]
-    keyboard.append(row1)
-    keyboard.append(row2)
-    return InlineKeyboardMarkup(keyboard)
-
-
-async def ask_feedback_rating(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Запрашивает оценку практики"""
-    query = update.callback_query
-    await query.answer()
-
-    await log_interaction(update, "FEEDBACK_RATING_REQUESTED")
-
-    rating_keyboard = await get_rating_keyboard()
-    await query.edit_message_text(
-        "📊 *Оцените практику*\n\n"
-        "Насколько полезна была для вас эта практика?\n"
-        "Оцените от 1 до 10, где 1 - совсем не понравилось, 10 - очень понравилось:",
-        reply_markup=rating_keyboard,
-        parse_mode='Markdown'
-    )
-
-
-async def handle_rating_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик выбора рейтинга"""
-    query = update.callback_query
-    await query.answer()
-
-    rating = int(query.data.replace("rating_", ""))
-    await log_interaction(update, "RATING_SELECTED", f"Rating: {rating}")
-
-    context.user_data['feedback_rating'] = rating
-
-    # Переходим к запросу комментария
-    await ask_feedback_comment(update, context)
 
 
 async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,12 +28,14 @@ async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYP
 
     msg = await context.bot.send_message(
         chat_id=update.callback_query.message.chat.id,
-        text="💬 *Комментарий к практике*\n\n"
-        "Хотите ли вы оставить комментарий или отзыв о практике?\n"
-        "Это поможет нам стать лучше! Вы сразу же получите персональный ответ.",
+        text="""
+💬 Разделить момент
+
+Место для слов о себе. Просто напиши их...
+    """,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏭ Пропустить", callback_data="skip_comment")]
+            [InlineKeyboardButton("🌌 В моё пространство", callback_data="skip_comment")]
         ])
     )
     context.user_data["comment_prompt_message_id"] = msg.message_id
@@ -114,6 +74,7 @@ async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         "mood_after": mood_after,
         "feedback_rating": feedback_rating,
         "feedback_comment": feedback_comment,
+        "current_time": datetime.datetime.now(),
     }
 
     await log_interaction(update, "COMMENT_RECEIVED", f"Comment: '{feedback_comment[:50]}...'")

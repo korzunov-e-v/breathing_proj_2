@@ -7,7 +7,6 @@ from src.settings import settings
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-SONNET_MODEL = "anthropic/claude-3.5-sonnet"  # можно поменять на нужный
 
 
 class OpenRouterError(RuntimeError):
@@ -20,7 +19,7 @@ async def generate_comment_reply(*, system_prompt: str, user_comment: str) -> st
         raise OpenRouterError("OPENROUTER_TOKEN не задан")
 
     payload = {
-        "model": SONNET_MODEL,
+        "model": settings.openrouter_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_comment},
@@ -32,9 +31,6 @@ async def generate_comment_reply(*, system_prompt: str, user_comment: str) -> st
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
-        # эти можно добавить позже, не обязательно:
-        # "HTTP-Referer": "https://your-domain.example",
-        # "X-Title": "breathing_com_bot",
     }
 
     timeout = httpx.Timeout(20.0, connect=10.0)

@@ -41,22 +41,11 @@ class Settings(BaseSettings):
     admin_tg_ids: Optional[list[int]] = Field(None)
 
     openrouter_token: Optional[str] = Field(None)
+    openrouter_model: Optional[str] = Field("anthropic/claude-3.5-haiku")
     prompt_file: str = "prompt.txt"
-    # openrouter_comment_prompt: str = Field(
-    #     "Ты эмпатичный ассистент. Ответь на комментарий пользователя кратко, по делу и поддерживающе."
-    # )
     openai_api_key: Optional[str] = Field(None)
 
     def model_post_init(self, context: Optional[Any]) -> None:
-        """Construct the database URL from individual connection parameters.
-
-        Builds a PostgreSQL DSN (Data Source Name) URL using asyncpg driver
-        from the configured host, port, username, password, and database name
-        if db_url is not already set. Prints the constructed database URL.
-
-        Args:
-            context: Optional context passed by Pydantic during model initialization.
-        """
         if not self.db_url:
             self.db_url = PostgresDsn.build(
                 scheme="postgresql+asyncpg",

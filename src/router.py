@@ -9,7 +9,7 @@ from src.modules.onboarding.onboarding import send_onboarding, continue_onboardi
 from src.modules.practice.mood import ask_mood_after_practice, handle_mood_selection
 from src.modules.practice.pract import show_daily_practice, show_practice_again, handle_practice_completion, \
     handle_restart_practices, handle_repeat_practice_selection
-from src.modules.practice.rate import ask_feedback_rating, handle_comment_skip, handle_rating_selection
+from src.modules.practice.rate import handle_comment_skip
 from src.modules.reminders.reminders import remind_later_handler, skip_today_handler
 from src.modules.settings.notifications import pause_notifications_handler
 from src.modules.settings.time import handle_change_time, handle_time_selection
@@ -36,7 +36,6 @@ EXACT_ROUTES: dict[str, Handler] = {
     "ask_mood_after": ask_mood_after_practice,
 
     # фидбек
-    "ask_feedback_rating": ask_feedback_rating,
     "skip_comment": handle_comment_skip,
 
     # напоминания/уведомления
@@ -51,7 +50,6 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("set_time_", handle_time_selection),
     ("repeat_practice_", handle_repeat_practice_selection),
     ("mood_", handle_mood_selection),
-    ("rating_", handle_rating_selection),
 ]
 
 

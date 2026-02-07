@@ -12,6 +12,7 @@ from src.modules.practice.tools import get_moods_keyboard
 
 PRACTICE_MSG_IDS_KEY = "practice_message_ids"
 
+
 async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает содержание практики после выбора настроения"""
     await log_interaction(update, "PRACTICE_SHOWN")
@@ -30,28 +31,9 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
         if context.user_data.get('selected_practice_id'):
             # Если есть выбранная практика (из повторных или библиотеки), используем ее
             practice = db.query(Practice).filter(Practice.id == context.user_data['selected_practice_id']).first()
-            practice_day = practice.day_number if practice else None
-            practice_source = "повторения"
         else:
             # Иначе показываем практику текущего дня
             practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
-            practice_day = user.current_day
-            practice_source = "дня"
-
-        if not practice:
-            await context.bot.send_message(chat_id, "Практика не найдена")
-            return
-
-        # Показываем практику
-        text = (
-            f"🧘 *Практика {practice_source} {practice_day}*\n"
-            f"\n"
-            f"{practice.intro_text}\n"
-            f"\n"
-            f"Длительность: ~5 минут\n"
-            f"\n"
-            f"Готовы начать?\n"
-        )
 
         practice_msg_ids = context.user_data.setdefault("practice_message_ids", [])
         # Если есть аудио - отправляем его
@@ -66,20 +48,21 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             except Exception as e:
                 logging.error(f"Ошибка отправки аудио: {e}")
 
-        # Отправляем текст практики
-        text_msg = await context.bot.send_message(chat_id, text, parse_mode='Markdown')
-        practice_msg_ids.append(text_msg.message_id)
-
         # Сразу показываем меню завершения
         buttons = [
-            {"text": "✅ Я сделал практику", "goto": "ask_mood_after"},
-            {"text": "⬅️ Главное меню", "goto": "menu"}
+            {"text": "🍃 Выдох", "goto": "ask_mood_after"},
+            {"text": "🌌 В моё пространство", "goto": "menu"}
         ]
 
         await replace_menu_message(
             chat_id=chat_id,
             context=context,
-            text="Отметьте завершение практики:",
+            text="""
+Этот момент был твоим.  
+Спасибо, что позволил ему случиться...
+
+Пусть дальше говорит выдох.
+            """,
             buttons=buttons,
             media_files=[],
         )
@@ -163,7 +146,14 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             # Формируем текст завершения
             completion_text = ""
             if practice and practice.outro_text:
-                completion_text = f"🎯 *Завершение практики*\n\n{practice.outro_text}\n\n"
+                completion_text = f"""
+⟡ Между 
+
+Спасибо, что поделился частью себя.  
+Это остаётся здесь — без оценки, без спешки.
+
+Можно просто позволить этому быть.
+                """
 
             # Добавляем благодарность за фидбек
             rating = context.user_data.get('feedback_rating')
@@ -176,11 +166,6 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 else:
                     # фоллбек, если OpenRouter не отработал/не успел/упал
                     completion_text += "\n\n💬 Спасибо за комментарий!"
-
-            if context.user_data.get('is_repeat'):
-                completion_text += "🔄\n\nПрактика повторно завершена!"
-            else:
-                completion_text += "🧘\n\nПрактика завершена!"
 
             # Очищаем временные данные
             context.user_data.pop('mood_before', None)
@@ -239,15 +224,25 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         if today_practice:
             # Пользователь уже выполнил практику сегодня
             practice = db.query(Practice).filter(Practice.id == today_practice.practice_id).first()
-            text = (f"✅ *Вы уже выполнили практику сегодня*\n"
-                    f"\n"
-                    f"🧘 Сегодня вы прошли: День {practice.day_number if practice else '?'} - {practice.intro_text[:100] + '...' if practice and practice.intro_text else 'практику'}\n"
-                    f"\n"
-                    f'Вы можете повторить пройденные практики через меню "🔄 Пройти снова"')
+            text = f"""
+🌿 Сегодня ты уже был с дыханием
+
+Этот шаг сделан.  
+Тело помнит его.
+
+🧘 Ты прошёл сегодня:  
+Вдох {practice.day_number}
+
+Если чувствуешь отклик —  
+можно пройти этот путь ещё раз,  
+уже из другого состояния, просто 🔄 Вернись к дыханию.
+
+Или просто побыть с тем, что есть сейчас.
+            """
             buttons = [
-                {"text": "🔄 Пройти снова", "goto": "practice_again"},
-                {"text": "📊 Моя статистика", "goto": "analytics"},
-                {"text": "⬅️ Главное меню", "goto": "menu"}
+                {"text": "🔄 Вернуться к дыханию", "goto": "practice_again"},
+                {"text": "📊 Мой ритм", "goto": "analytics"},
+                {"text": "🌌 В моё пространство", "goto": "menu"}
             ]
 
             await replace_menu_message(
@@ -278,18 +273,21 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Проверяем доступ к премиум контенту
         elif practice.premium and not user.subscribed:
             text = (f"🔒 *Премиум контент*\n\n"
-                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"
+                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"  # TODO
                     f"{practice.intro_text}\n"
                     )
             buttons = [
                 {"text": "💳 Выбрать подписку", "goto": "subscription_offer"},
                 {"text": "🔄 Повторить пройденные", "goto": "practice_again"},
-                {"text": "⬅️ Главное меню", "goto": "menu"}
+                {"text": "🌌 В моё пространство", "goto": "menu"}
             ]
         else:
             # ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - показываем практику
-            text = (f"🧘 *Практика дня {user.current_day}*\n\n"
-                    f"Какое у вас сейчас настроение?")
+            text = f"""
+🧘 *Дыхание дня {user.current_day}*
+
+Состояние этого мгновения...
+            """
             buttons = await get_moods_keyboard(buttons_only=True)
         await replace_menu_message(
             chat_id=chat_id,
@@ -339,7 +337,13 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not completed_ids:
             # Если нет пройденных практик
             text = """
-🔄 *Повторить практики*
+🔄 Возвращение к дыханию
+
+Иногда полезно пройти путь ещё раз.  
+Не чтобы повторить —  
+а чтобы услышать его глубже.
+
+Выбери то, к чему хочется вернуться сейчас.
 
 У вас пока нет пройденных практик для повторения.
 
@@ -364,15 +368,19 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
         ).order_by(Practice.day_number).all()
 
         text = """
-🔄 *Повторить практики*
+🔄 Возвращение к дыханию
 
-Выберите практику для повторного прохождения:
+Иногда полезно пройти путь ещё раз.  
+Не чтобы повторить —  
+а чтобы услышать его глубже.
+
+Выбери то, к чему хочется вернуться сейчас.
 """
 
         # Создаем клавиатуру только с пройденными практиками
         keyboard = []
         for practice in practices:
-            button_text = f"✅ День {practice.day_number}"
+            button_text = f"✅ Вдох {practice.day_number}"
             if practice.premium and not user.subscribed:
                 button_text += " 🔒"
 
@@ -386,8 +394,7 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Добавляем кнопки возврата
         keyboard.append(
             [
-                InlineKeyboardButton("⬅️ Назад", callback_data="menu"),
-                InlineKeyboardButton("🧘 Практика дня", callback_data="daily_practice")
+                InlineKeyboardButton("🌌 В моё пространство", callback_data="menu"),
             ]
         )
 

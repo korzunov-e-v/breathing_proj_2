@@ -7,7 +7,7 @@ from src.db.database import SessionLocal
 from src.db.models import Mood
 from src.log import log_interaction
 from src.modules.practice.pract import show_practice_content
-from src.modules.practice.rate import ask_feedback_rating
+from src.modules.practice.rate import ask_feedback_comment
 from src.modules.practice.tools import get_moods_keyboard
 
 
@@ -43,7 +43,7 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
             # Это настроение после практики
             context.user_data['mood_after'] = mood.name
             # Переходим к запросу рейтинга
-            await ask_feedback_rating(update, context)
+            await ask_feedback_comment(update, context)
 
     except Exception as e:
         logging.error(f"Ошибка в handle_mood_selection: {e}")
@@ -61,7 +61,11 @@ async def ask_mood_after_practice(update: Update, _context: ContextTypes.DEFAULT
 
     mood_keyboard = await get_moods_keyboard()
     await query.edit_message_text(
-        "🎯 Практика завершена!\n\nКакое у вас настроение теперь?",
+        text = """
+🧘 **Точка тишины**
+
+Состояние этого мгновения...
+        """,
         reply_markup=mood_keyboard,
         parse_mode='Markdown'
     )
