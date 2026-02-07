@@ -67,7 +67,7 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
     app.add_handler(CallbackQueryHandler(router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text), group=104, )
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_change_time), group=104, )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_change_time), group=105, )
 
     # После запуска бота запускаем планировщик
     async def on_startup(application):

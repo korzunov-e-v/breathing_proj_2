@@ -1,0 +1,2 @@
+migrations:
+	alembic revision --autogenerate

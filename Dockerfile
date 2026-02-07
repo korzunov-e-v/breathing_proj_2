@@ -1,16 +1,5 @@
 FROM python:3.14-slim AS builder
-
-# Устанавливаем системные зависимости для сборки
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Устанавливаем uv (ультрабыстрый пакетный менеджер)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -18,8 +7,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Создаем виртуальное окружение и устанавливаем зависимости
-RUN uv venv --python 3.14
-RUN uv sync --frozen --no-dev
+RUN uv venv --python 3.14 /app/.venv
+RUN uv sync --frozen
 
 
 
@@ -33,13 +22,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Копируем виртуальное окружение из билдера
-COPY --from=builder /app/.venv ./.venv
-
-# Копируем исходный код
 COPY . .
+COPY --from=builder /app/.venv /app/.venv
 
 # Настраиваем переменные окружения
+ENV PATH="/root/.local/bin/:$PATH"
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app:$PYTHONPATH"
 ENV PYTHONUNBUFFERED="1"

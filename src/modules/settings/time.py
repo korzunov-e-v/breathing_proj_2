@@ -31,16 +31,16 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await replace_menu_message(
                 chat_id=update.message.chat.id,
                 context=context,
-                text=(
-                    f"Отлично! 🎉\n"
-                    f"\n"
-                    f"Ваше время практик установлено на {user.practice_time}.\n"
-                    f"\n"
-                    f"Теперь я буду напоминать вам о практике в это время каждый день.\n"
-                    f"\n"
-                    f"Когда будете готовы начать - нажмите кнопку ниже:"
-                ),
-                buttons=[{"text": "⬅️ Главное меню", "goto": "menu"}],
+                text=f"""
+Я услышал твой ритм 🌿  
+Мы будем возвращаться к дыханию каждый день в {user.practice_time}.
+
+В это время я буду рядом и мягко напоминать тебе о твоём тихом моменте.  
+Без спешки. Без давления. В твоём темпе.
+
+Когда будешь готов — просто прикоснись к нашему пространству.
+                """,
+                buttons=[{"text": "🌌 В моё пространство", "goto": "menu"}],
                 media_files=[],
             )
         else:
@@ -55,7 +55,10 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await replace_menu_message(
             chat_id=update.message.chat.id,
             context=context,
-            text="Не понятно время, отправьте в формате 07:00, 09:31, 21:59",
+            text="""
+Я хочу поймать твой ритм — но сейчас время пришло в другом виде.  
+Напиши, пожалуйста, в формате **ЧЧ:ММ** 
+            """,
             buttons=[],
             media_files=[],
         )

@@ -106,7 +106,7 @@ class PracticeLog(Base):
     __tablename__ = "practice_logs"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     practice_id = Column(Integer, ForeignKey("practices.id"), nullable=False)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
     mood_before = Column(String(100))

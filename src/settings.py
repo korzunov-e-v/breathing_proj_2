@@ -4,10 +4,11 @@ This module provides the Settings class that loads and manages application
 configuration from environment variables, including bot credentials, database
 connection parameters, payment system settings, and external service endpoints.
 """
-
+from functools import lru_cache, cached_property
+from pathlib import Path
 from typing import Any, Optional
 
-from pydantic import Field, PostgresDsn
+from pydantic import Field, PostgresDsn, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,9 +41,10 @@ class Settings(BaseSettings):
     admin_tg_ids: Optional[list[int]] = Field(None)
 
     openrouter_token: Optional[str] = Field(None)
-    openrouter_comment_prompt: str = Field(
-        "Ты эмпатичный ассистент. Ответь на комментарий пользователя кратко, по делу и поддерживающе."
-    )
+    prompt_file: str = "prompt.txt"
+    # openrouter_comment_prompt: str = Field(
+    #     "Ты эмпатичный ассистент. Ответь на комментарий пользователя кратко, по делу и поддерживающе."
+    # )
     openai_api_key: Optional[str] = Field(None)
 
     def model_post_init(self, context: Optional[Any]) -> None:
@@ -66,5 +68,12 @@ class Settings(BaseSettings):
             )
         print(self.db_url)
 
+    @cached_property
+    def openrouter_comment_prompt(self) -> str:
+        """Свойство для загрузки промпта из файла"""
+        path = Path(self.prompt_file)
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+        return "Ты эмпатичный ассистент. Ответь на комментарий пользователя кратко, по делу и поддерживающе."
 
 settings = Settings()
