@@ -34,6 +34,7 @@ class UserContextData(BaseModel):
     messages_ids: list = []
     screen_message_id: Optional[int] = None
     ai_chat_context: list = []
+    last_chat_message_id: Optional[int] = None
 
     def clear_practice_data(self) -> None:
         """Clear practice-related fields"""
