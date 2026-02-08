@@ -139,20 +139,28 @@ async def show_main_menu(update, context):
     context.user_data.pop('is_repeat', None)
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🧘 Практика дня", callback_data="daily_practice")],
-        [InlineKeyboardButton("🔄 Пройти снова", callback_data="practice_again")],
-        [InlineKeyboardButton("📚 Библиотека", callback_data="library")],
-        [InlineKeyboardButton("📊 Аналитика", callback_data="analytics")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="settings")],
+        [InlineKeyboardButton("🌬 Дыхание дня (твой сегодняшний ритм)", callback_data="daily_practice")],
+        [InlineKeyboardButton("🔄 Вернуться к дыханию (вернуться к глубине)", callback_data="practice_again")],
+        [InlineKeyboardButton("📚 Заметки Кабира (между строк)", callback_data="library")],
+        [InlineKeyboardButton("🌀 Дневник состояний (заметить, что происходит внутри)", callback_data="analytics")],
+        [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
+        [InlineKeyboardButton("✨ Глубже в путешествие (подписка и управление)", callback_data="subscription")],
+        [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
     ])
 
     await replace_screen(
         chat_id=chat_id,
         context=context,
-        text=(
-            "🧘 *Ваше пространство для дыхания*\n\n"
-            "Здесь вы найдете практики, которые помогут обрести гармонию и спокойствие."
-        ),
+        text="""
+*🌿 Главное пространство*
+
+**Здесь нет спешки и задач.**  
+Здесь ты возвращаешься к себе —  
+через дыхание, внимание и тишину.
+
+Выбирай то, что откликается тебе сейчас.  
+Каждый путь здесь — про заботу и присутствие.
+        """,
         reply_markup=keyboard,
         media="AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ",
     )
