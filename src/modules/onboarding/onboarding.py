@@ -3,6 +3,7 @@ import asyncio
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData, UserState
 from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message
 from src.modules.settings.time import get_timezones_kb
@@ -79,7 +80,8 @@ async def retry_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def setting_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    context.user_data['waiting_for_change_timezone'] = True
+    user_data: UserContextData = context.user_data
+    user_data.state = UserState.WAITING_TIMEZONE
 
     text = '''
 У каждого свой ритм — и я предлагаю тебе выбрать свой.  
@@ -101,7 +103,8 @@ async def setting_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def finish_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    context.user_data['waiting_for_change_time'] = True
+    user_data: UserContextData = context.user_data
+    user_data.state = UserState.WAITING_TIME
 
     text = '''
 У каждого свой ритм — и я предлагаю тебе выбрать свой.  

@@ -10,8 +10,6 @@ from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message, show_main_menu
 from src.modules.practice.tools import get_moods_keyboard
 
-PRACTICE_MSG_IDS_KEY = "practice_message_ids"
-
 
 async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает содержание практики после выбора настроения"""

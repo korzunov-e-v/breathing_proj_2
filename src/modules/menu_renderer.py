@@ -5,12 +5,15 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData, UserState
+from src.db.database import SessionLocal
+from src.db.models import User
 from src.telegram_utils import _detect_type
 
-SCREEN_KEY_ID = "screen_message_id"
 
 async def cleanup_practice_messages(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    ids = context.user_data.pop("practice_message_ids", [])
+    user_data: UserContextData = context.user_data
+    ids = user_data.practice_data.practice_message_ids
     for mid in ids:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=mid)
@@ -19,23 +22,25 @@ async def cleanup_practice_messages(chat_id: int, context: ContextTypes.DEFAULT_
         except Exception:
             pass
 
+
 async def replace_menu_message(
-        *,
-        chat_id: int,
-        context,
-        text: str,
-        buttons=None,
-        reply_markup=None,
-        media_files: list | None = None,
-        parse_mode: str = "Markdown",
+    *,
+    chat_id: int,
+    context,
+    text: str,
+    buttons=None,
+    reply_markup=None,
+    media_files: list | None = None,
+    parse_mode: str = "Markdown",
 ):
     """Удаляет предыдущее меню (если было) и отправляет новое. Сохраняет message_id."""
+    user_data: UserContextData = context.user_data
 
     media_files = media_files or []
     media_file = media_files[0] if media_files else None
 
     # 1) удалить предыдущее меню
-    old_id = context.user_data.get(SCREEN_KEY_ID)
+    old_id = user_data.screen_message_id
     if old_id:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=old_id)
@@ -87,7 +92,7 @@ async def replace_menu_message(
         )
 
     # 3) сохранить id нового меню
-    context.user_data[SCREEN_KEY_ID] = msg.message_id
+    user_data.screen_message_id = msg.message_id
     return msg.message_id
 
 
@@ -100,7 +105,8 @@ async def replace_screen(
     media=None,
     parse_mode="Markdown",
 ):
-    old_id = context.user_data.get(SCREEN_KEY_ID)
+    user_data: UserContextData = context.user_data
+    old_id = user_data.screen_message_id
     if old_id:
         try:
             await context.bot.delete_message(chat_id, old_id)
@@ -123,30 +129,29 @@ async def replace_screen(
             reply_markup=reply_markup,
         )
 
-    context.user_data[SCREEN_KEY_ID] = msg.message_id
+    user_data.screen_message_id = msg.message_id
 
 
-async def show_main_menu(update, context):
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await cleanup_practice_messages(chat_id, context)
 
-    context.user_data.pop('mood_before', None)
-    context.user_data.pop('mood_after', None)
-    context.user_data.pop('feedback_rating', None)
-    context.user_data.pop('feedback_comment', None)
-    context.user_data.pop('waiting_for_comment', None)
-    context.user_data.pop('selected_practice_id', None)
-    context.user_data.pop('is_repeat', None)
+    user_data: UserContextData = context.user_data
+    user_data.clear_practice_data()
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌬 Дыхание дня (твой сегодняшний ритм)", callback_data="daily_practice")],
-        [InlineKeyboardButton("🔄 Вернуться к дыханию (вернуться к глубине)", callback_data="practice_again")],
-        [InlineKeyboardButton("📚 Заметки Кабира (между строк)", callback_data="library")],
-        [InlineKeyboardButton("🌀 Дневник состояний (заметить, что происходит внутри)", callback_data="analytics")],
-        [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
-        [InlineKeyboardButton("✨ Глубже в путешествие (подписка и управление)", callback_data="subscription")],
-        [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
-    ])
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🌬 Дыхание дня (твой сегодняшний ритм)", callback_data="daily_practice")],
+            [InlineKeyboardButton("🔄 Вернуться к дыханию (вернуться к глубине)", callback_data="practice_again")],
+            [InlineKeyboardButton("📚 Заметки Кабира (между строк)", callback_data="library")],
+            [InlineKeyboardButton("🌀 Дневник состояний (заметить, что происходит внутри)", callback_data="analytics")],
+            [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
+            [InlineKeyboardButton("✨ Глубже в путешествие (подписка и управление)", callback_data="subscription")] if _get_user_current_day(
+                update.effective_user.id
+            ) >= 3 else [],
+            [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
+        ]
+    )
 
     await replace_screen(
         chat_id=chat_id,
@@ -164,3 +169,14 @@ async def show_main_menu(update, context):
         reply_markup=keyboard,
         media="AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ",
     )
+
+
+def _get_user_current_day(user_id: int):
+    db = SessionLocal()
+    try:
+        user: User = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            return user.current_day
+        return 1
+    finally:
+        db.close()

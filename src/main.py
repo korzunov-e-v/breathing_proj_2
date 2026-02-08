@@ -12,6 +12,7 @@ from telegram.ext import (
 from telegram.ext import ContextTypes
 
 from src.app_tasks import start_scheduler
+from src.context import UserContextData, context_types
 from src.db.database import create_tables, SessionLocal
 from src.db.models import User
 from src.log import log_interaction, setup_logging
@@ -30,6 +31,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     _chat_id = update.effective_chat.id
+
+    user_data: UserContextData = context.user_data
+    user_data.clear_practice_data()
 
     # Сохраняем/обновляем пользователя в БД
     db = SessionLocal()
@@ -58,7 +62,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     create_tables()
-    app = ApplicationBuilder().token(settings.bot_token).build()
+    app = ApplicationBuilder().token(settings.bot_token).context_types(context_types).build()
     setup_logging()
 
     logging.info("🤖 Бот запущен и готов к работе!")

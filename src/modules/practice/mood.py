@@ -3,6 +3,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData
 from src.db.database import SessionLocal
 from src.db.models import Mood
 from src.log import log_interaction
@@ -15,6 +16,7 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
     """Обработчик выбора настроения"""
     query = update.callback_query
     await query.answer()
+    user_data: UserContextData = context.user_data
 
     mood_id = query.data.replace("mood_", "")
     await log_interaction(update, "MOOD_SELECTED", f"MoodID: {mood_id}")
@@ -27,21 +29,21 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         # Сохраняем выбранное настроение в context.user_data
-        if 'mood_before' not in context.user_data:
+        if not user_data.practice_data.mood_before:
             # Это настроение перед практикой
-            context.user_data['mood_before'] = mood.name
+            user_data.practice_data.mood_before = mood.name
 
             # УДАЛЯЕМ старое сообщение с выбором настроения
             await query.delete_message()
-            old_menu_id = context.user_data.get("menu_message_id")
+            old_menu_id = user_data.screen_message_id
             if old_menu_id == query.message.message_id:
-                context.user_data.pop("menu_message_id", None)
+                user_data.screen_message_id = None
             # ПОКАЗЫВАЕМ практику сразу после выбора настроения
             await show_practice_content(update, context)
 
         else:
             # Это настроение после практики
-            context.user_data['mood_after'] = mood.name
+            user_data.practice_data.mood_after = mood.name
             # Переходим к запросу рейтинга
             await ask_feedback_comment(update, context)
 

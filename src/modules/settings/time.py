@@ -3,6 +3,7 @@ import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData, UserState
 from src.db.database import SessionLocal
 from src.db.models import User
 from src.log import log_interaction
@@ -11,8 +12,8 @@ from src.modules.menu_renderer import replace_menu_message
 
 async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик для меню смены времени"""
-
-    if not context.user_data.get('waiting_for_change_time'):
+    user_data: UserContextData = context.user_data
+    if not user_data.state == UserState.WAITING_TIME:
         return
 
     await log_interaction(update, "CHANGE_TIME_REQUESTED")
@@ -27,7 +28,7 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if user:
             user.practice_time = time.strftime("%H:%M")
             db.commit()
-            context.user_data.pop('waiting_for_change_time')
+            user_data.state = UserState.IDLE
             await replace_menu_message(
                 chat_id=update.message.chat.id,
                 context=context,
@@ -126,8 +127,8 @@ async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAUL
             db.commit()
 
             # Переходим к выбору времени практики
-            context.user_data['waiting_for_change_timezone'] = False
-            context.user_data['waiting_for_change_time'] = True
+            user_data: UserContextData = context.user_data
+            user_data.state = UserState.WAITING_TIME
 
             text = '''
 У каждого свой ритм — и я предлагаю тебе выбрать свой.  
