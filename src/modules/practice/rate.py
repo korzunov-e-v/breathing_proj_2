@@ -5,6 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData, UserState
 from src.log import log_interaction
 from src.modules.llm.openrouter_client import generate_comment_reply, OpenRouterError
 from src.modules.practice.pract import handle_practice_completion
@@ -18,11 +19,13 @@ async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await log_interaction(update, "FEEDBACK_COMMENT_REQUESTED")
 
+    user_data: UserContextData = context.user_data
+
     # Сохраняем состояние ожидания комментария
-    context.user_data['waiting_for_comment'] = True
+    user_data.state = UserState.WAITING_COMMENT
 
     keyboard = [
-        [InlineKeyboardButton("🚫 Пропустить комментарий", callback_data="skip_comment")]
+        [InlineKeyboardButton("🌌 В моё пространство", callback_data="skip_comment")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -34,12 +37,9 @@ async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYP
 Место для слов о себе. Просто напиши их...
     """,
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🌌 В моё пространство", callback_data="skip_comment")]
-        ])
+        reply_markup=reply_markup
     )
-    context.user_data["comment_prompt_message_id"] = msg.message_id
-    context.user_data["waiting_for_comment"] = True
+    user_data.screen_message_id = msg.message_id
 
 
 async def handle_comment_skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,8 +49,9 @@ async def handle_comment_skip(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await log_interaction(update, "COMMENT_SKIPPED")
 
-    context.user_data['feedback_comment'] = None
-    context.user_data.pop('waiting_for_comment', None)
+    user_data: UserContextData = context.user_data
+    user_data.practice_data.feedback_comment = None
+    user_data.state = UserState.IDLE
 
     # Завершаем практику
     await handle_practice_completion(update, context)
@@ -58,21 +59,22 @@ async def handle_comment_skip(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик текстового комментария"""
-    if not context.user_data.get('waiting_for_comment'):
+    user_data: UserContextData = context.user_data
+
+    if user_data.state != UserState.WAITING_COMMENT:
         return
 
-    context.user_data['feedback_comment'] = update.message.text
+    user_data.state = UserState.IDLE
 
-    mood_before = context.user_data.get('mood_before', None)
-    mood_after = context.user_data.get('mood_after', None)
-    feedback_rating = context.user_data.get('feedback_rating', None)
-    feedback_comment = context.user_data.get('feedback_comment', None)
-    waiting_for_comment = context.user_data.get('waiting_for_comment', None)
+    user_data.practice_data.feedback_comment = update.message.text
+
+    mood_before = user_data.practice_data.mood_before
+    mood_after = user_data.practice_data.mood_after
+    feedback_comment = user_data.practice_data.feedback_comment
 
     ai_context = {
         "mood_before": mood_before,
         "mood_after": mood_after,
-        "feedback_rating": feedback_rating,
         "feedback_comment": feedback_comment,
         "current_time": datetime.datetime.now(),
     }
@@ -92,7 +94,7 @@ async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         logging.exception(f"Unexpected error calling OpenRouter: {e}")
 
     # сохраним, чтобы показать в завершении практики
-    context.user_data["feedback_ai_reply"] = ai_reply
+    user_data.practice_data.feedback_ai_reply = ai_reply
 
     # Удаляем сообщение с запросом комментария если возможно
     try:

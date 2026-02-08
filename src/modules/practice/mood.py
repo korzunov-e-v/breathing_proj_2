@@ -45,6 +45,7 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
             # Это настроение после практики
             user_data.practice_data.mood_after = mood.name
             # Переходим к запросу рейтинга
+            await query.delete_message()
             await ask_feedback_comment(update, context)
 
     except Exception as e:

@@ -4,6 +4,7 @@ from sqlalchemy import func
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData
 from src.db.database import SessionLocal
 from src.db.models import Practice, PracticeLog, User
 from src.log import log_interaction
@@ -17,7 +18,8 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-
+    user_data: UserContextData = context.user_data
+    
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.tg_id == user_id).first()
@@ -26,14 +28,13 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         # Определяем, какую практику показывать
-        if context.user_data.get('selected_practice_id'):
+        if user_data.practice_data.selected_practice_id:
             # Если есть выбранная практика (из повторных или библиотеки), используем ее
-            practice = db.query(Practice).filter(Practice.id == context.user_data['selected_practice_id']).first()
+            practice = db.query(Practice).filter(Practice.id == user_data.practice_data.selected_practice_id).first()
         else:
             # Иначе показываем практику текущего дня
             practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
 
-        practice_msg_ids = context.user_data.setdefault("practice_message_ids", [])
         # Если есть аудио - отправляем его
         if practice.audio_file_id:
             try:
@@ -42,7 +43,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
                     audio=practice.audio_file_id,
                     caption="🎧 Аудио для практики"
                 )
-                practice_msg_ids.append(audio_msg.message_id)
+                user_data.practice_data.practice_message_ids.append(audio_msg.message_id)
             except Exception as e:
                 logging.error(f"Ошибка отправки аудио: {e}")
 
@@ -76,19 +77,19 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
     """Обработчик завершения практики с учетом типа (новая/повторная)"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+    user_data: UserContextData = context.user_data
 
     # Логируем завершение практики
-    mood_before = context.user_data.get('mood_before')
-    mood_after = context.user_data.get('mood_after')
-    rating = context.user_data.get('feedback_rating')
-    comment = context.user_data.get('feedback_comment')
-    ai_reply = context.user_data.get("feedback_ai_reply")
-    has_comment = bool(context.user_data.get('feedback_comment'))
+    mood_before = user_data.practice_data.mood_before
+    mood_after = user_data.practice_data.mood_after
+    comment = user_data.practice_data.feedback_comment
+    ai_reply = user_data.practice_data.feedback_ai_reply
+    has_comment = bool(user_data.practice_data.feedback_comment)
 
     await log_interaction(
         update,
         "PRACTICE_COMPLETED",
-        f"MoodBefore: {mood_before}, MoodAfter: {mood_after}, Rating: {rating}, HasComment: {has_comment}"
+        f"MoodBefore: {mood_before}, MoodAfter: {mood_after}, HasComment: {has_comment}"
     )
 
     # Определяем, откуда брать сообщение для редактирования
@@ -104,8 +105,8 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         user = db.query(User).filter(User.tg_id == user_id).first()
         if user:
             # Определяем ID практики
-            if context.user_data.get('is_repeat'):
-                practice_id = context.user_data.get('selected_practice_id')
+            if user_data.practice_data.is_repeat:
+                practice_id = user_data.practice_data.selected_practice_id
                 practice = db.query(Practice).filter(Practice.id == practice_id).first()
                 practice_type = "repeat"
             else:
@@ -118,16 +119,16 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 user_id=user.id,
                 practice_id=practice_id,
                 completed_at=func.now(),
-                mood_before=context.user_data.get('mood_before'),
-                mood_after=context.user_data.get('mood_after'),
-                feedback_rating=context.user_data.get('feedback_rating'),
-                feedback_comment=context.user_data.get('feedback_comment'),
+                mood_before=str(user_data.practice_data.mood_before),
+                mood_after=str(user_data.practice_data.mood_after),
+                feedback_rating=0,
+                feedback_comment=user_data.practice_data.feedback_comment,
                 practice_type=practice_type  # Сохраняем тип практики
             )
             db.add(practice_log)
 
             # Обновляем прогресс пользователя, только если это НЕ повтор
-            if not context.user_data.get('is_repeat'):
+            if not user_data.practice_data.is_repeat:
                 user.streak += 1
                 user.current_day += 1
 
@@ -135,7 +136,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             user.last_practice_at = func.now()
 
             # Сбрасываем счетчик напоминаний только для daily практики
-            if not context.user_data.get('is_repeat'):
+            if not user_data.practice_data.is_repeat:
                 user.reminder_count_today = 0
                 user.freeze_reminders = False
 
@@ -154,9 +155,6 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 """
 
             # Добавляем благодарность за фидбек
-            rating = context.user_data.get('feedback_rating')
-            if rating:
-                completion_text += f"Спасибо за оценку *{rating}/10*! "
             if comment:
                 if ai_reply:
                     completion_text += "\n\n🧘 *Ответ на ваш комментарий:*\n"
@@ -166,14 +164,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                     completion_text += "\n\n💬 Спасибо за комментарий!"
 
             # Очищаем временные данные
-            context.user_data.pop('mood_before', None)
-            context.user_data.pop('mood_after', None)
-            context.user_data.pop('feedback_rating', None)
-            context.user_data.pop('feedback_comment', None)
-            context.user_data.pop('feedback_ai_reply', None)
-            context.user_data.pop('waiting_for_comment', None)
-            context.user_data.pop('selected_practice_id', None)
-            context.user_data.pop('is_repeat', None)
+            user_data.clear_practice_data()
 
             if query:
                 await query.edit_message_text(completion_text, parse_mode='Markdown')
@@ -181,7 +172,6 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown')
 
             # Показываем главное меню
-            practice_msg_ids = context.user_data.pop("practice_message_ids", None)
             await show_main_menu(update, context)
         else:
             await message_func("Пользователь не найден")
@@ -431,6 +421,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
     """Обработчик выбора практики для повторного прохождения"""
     query = update.callback_query
     await query.answer()
+    user_data: UserContextData = context.user_data
 
     practice_id = query.data.replace("repeat_practice_", "")
     await log_interaction(update, "REPEAT_PRACTICE_SELECTED", f"PracticeID: {practice_id}")
@@ -454,8 +445,8 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
             return
 
         # Сохраняем выбранную практику в context для использования в процессе
-        context.user_data['selected_practice_id'] = practice.id
-        context.user_data['is_repeat'] = True  # Помечаем как повторное прохождение
+        user_data.practice_data.selected_practice_id = practice.id
+        user_data.practice_data.is_repeat = True  # Помечаем как повторное прохождение
 
         # Спрашиваем настроение перед практикой
         mood_keyboard = await get_moods_keyboard()

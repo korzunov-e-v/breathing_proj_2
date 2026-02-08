@@ -24,6 +24,7 @@ class PracticeData(BaseModel):
     selected_practice_id: Optional[int] = None
     is_repeat: Optional[bool] = None
     practice_message_ids: list = []
+    feedback_ai_reply: Optional[str] = None
 
 
 class UserContextData(BaseModel):
@@ -36,6 +37,7 @@ class UserContextData(BaseModel):
     def clear_practice_data(self) -> None:
         """Clear practice-related fields"""
         self.practice_data = PracticeData()
+        self.state = UserState.IDLE
 
 
 context_types = ContextTypes(
