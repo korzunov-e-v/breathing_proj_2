@@ -16,6 +16,7 @@ from src.context import UserContextData, context_types
 from src.db.database import create_tables, SessionLocal
 from src.db.models import User
 from src.log import log_interaction, setup_logging
+from src.modules.llm.chat import handle_chat_message
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import send_onboarding
 from src.modules.practice.rate import handle_comment_text
@@ -72,6 +73,7 @@ def main():
     app.add_handler(CallbackQueryHandler(router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text), group=104, )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_change_time), group=105, )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_message), group=106, )
 
     # После запуска бота запускаем планировщик
     async def on_startup(application):

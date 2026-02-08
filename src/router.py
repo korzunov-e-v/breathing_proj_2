@@ -4,6 +4,7 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.llm.chat import handle_chat
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import (
     send_onboarding,
@@ -26,6 +27,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "menu": show_main_menu,
     "daily_practice": show_daily_practice,
     "practice_again": show_practice_again,
+    "ai_chat": handle_chat,
 
     # онбординг
     "send_onboarding": send_onboarding,
