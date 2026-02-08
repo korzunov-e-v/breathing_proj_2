@@ -99,3 +99,72 @@ async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_T
             await query.edit_message_text("Пользователь не найден. Начните с /start")
     finally:
         db.close()
+
+
+async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик выбора часового пояса"""
+    query = update.callback_query
+    await query.answer()
+
+    # Получаем offset относительно МСК
+    msk_offset_str = query.data.replace("timezone_", "")
+    msk_offset = int(msk_offset_str)
+
+    # Конвертируем в GMT offset (МСК = GMT+3)
+    gmt_offset = msk_offset + 3
+
+    await log_interaction(update, "TIMEZONE_SELECTED", f"MSK offset: {msk_offset}, GMT offset: {gmt_offset}")
+
+    user_id = query.from_user.id
+
+    # Сохраняем часовой пояс в БД
+    db = SessionLocal()
+    try:
+        user: User = db.query(User).filter(User.tg_id == user_id).first()
+        if user:
+            user.timezone = gmt_offset
+            db.commit()
+
+            # Переходим к выбору времени практики
+            context.user_data['waiting_for_change_timezone'] = False
+            context.user_data['waiting_for_change_time'] = True
+
+            text = '''
+У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+
+✦ Просто напиши мне подходящее для себя время.
+
+_Формат: ЧЧ:ММ_ 
+            '''
+
+            await replace_menu_message(
+                chat_id=query.message.chat.id,
+                context=context,
+                text=text,
+                buttons=[],
+                media_files=[],
+            )
+        else:
+            await replace_menu_message(
+                chat_id=query.message.chat.id,
+                context=context,
+                text="Пользователь не найден. Начните с /start",
+                buttons=[],
+                media_files=[],
+            )
+    finally:
+        db.close()
+
+
+def get_timezones_kb():
+    buttons = []
+    for offset in range(-11, 13):
+        if offset == 0:
+            label = "МСК"
+        elif offset > 0:
+            label = f"МСК+{offset}"
+        else:
+            label = f"МСК{offset}"
+        buttons.append({"text": label, "goto": f"timezone_{offset}"})
+    return buttons

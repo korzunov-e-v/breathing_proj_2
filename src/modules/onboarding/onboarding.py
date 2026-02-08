@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 
 from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message
+from src.modules.settings.time import get_timezones_kb
 
 
 async def send_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,7 +47,7 @@ async def continue_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE
 Дальше — выбор: шаг или пауза.
     """)
     buttons = [
-        {"text": "🌊 Коснулся дыхания", "goto": "finish_onboarding"},
+        {"text": "🌊 Коснулся дыхания", "goto": "setting_timezone"},
         {"text": "⏳ Создал паузу", "goto": "retry_onboarding"},
     ]
     await replace_menu_message(
@@ -66,6 +67,28 @@ async def retry_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
         {"text": "🌬️ Вернуться к дыханию", "goto": "send_onboarding"},
     ]
+    await replace_menu_message(
+        chat_id=query.message.chat.id,
+        context=context,
+        text=text,
+        buttons=buttons,
+        media_files=[],
+    )
+
+
+async def setting_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data['waiting_for_change_timezone'] = True
+
+    text = '''
+У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+
+✦ Просто напиши мне твой часовой пояс от МСК.
+    '''
+    buttons = get_timezones_kb()
+    # Генерируем кнопки для часовых поясов от МСК-11 до МСК+12
     await replace_menu_message(
         chat_id=query.message.chat.id,
         context=context,

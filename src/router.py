@@ -5,14 +5,20 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.modules.menu_renderer import show_main_menu
-from src.modules.onboarding.onboarding import send_onboarding, continue_onboarding, retry_onboarding, finish_onboarding
+from src.modules.onboarding.onboarding import (
+    send_onboarding,
+    continue_onboarding,
+    retry_onboarding,
+    finish_onboarding,
+    setting_timezone
+)
 from src.modules.practice.mood import ask_mood_after_practice, handle_mood_selection
 from src.modules.practice.pract import show_daily_practice, show_practice_again, handle_practice_completion, \
     handle_restart_practices, handle_repeat_practice_selection
 from src.modules.practice.rate import handle_comment_skip
 from src.modules.reminders.reminders import remind_later_handler, skip_today_handler
 from src.modules.settings.notifications import pause_notifications_handler
-from src.modules.settings.time import handle_change_time, handle_time_selection
+from src.modules.settings.time import handle_change_time, handle_time_selection, handle_timezone_selection
 
 Handler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
 EXACT_ROUTES: dict[str, Handler] = {
@@ -25,6 +31,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "send_onboarding": send_onboarding,
     "continue_onboarding": continue_onboarding,
     "retry_onboarding": retry_onboarding,
+    "setting_timezone": setting_timezone,
     "finish_onboarding": finish_onboarding,
 
     # время/настройки
@@ -50,6 +57,7 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("set_time_", handle_time_selection),
     ("repeat_practice_", handle_repeat_practice_selection),
     ("mood_", handle_mood_selection),
+    ("timezone_", handle_timezone_selection),
 ]
 
 
