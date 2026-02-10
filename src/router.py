@@ -4,6 +4,8 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
+from src.modules.library.menu import show_library_menu
 from src.modules.llm.chat import handle_chat, stop_chat
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import (
@@ -29,6 +31,8 @@ EXACT_ROUTES: dict[str, Handler] = {
     "practice_again": show_practice_again,
     "ai_chat": handle_chat,
     "stop_chat": stop_chat,
+    "library": show_library_menu,
+    "library_notes": show_library_content,
 
     # онбординг
     "send_onboarding": send_onboarding,
@@ -61,6 +65,8 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("repeat_practice_", handle_repeat_practice_selection),
     ("mood_", handle_mood_selection),
     ("timezone_", handle_timezone_selection),
+    ("article_category_", show_articles_by_category),
+    ("article_", show_article),
 ]
 
 
