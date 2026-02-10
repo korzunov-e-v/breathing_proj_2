@@ -4,6 +4,7 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.analytics.analytics import show_analytics
 from src.modules.library.library_mini_practice import show_mini_practice, show_mini_practices_content
 from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
 from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
@@ -39,6 +40,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "library_sounds": show_music_content,
     "library_videos": show_video_content,
     "library_practices": show_mini_practices_content,
+    "analytics": show_analytics,
 
     # онбординг
     "send_onboarding": send_onboarding,

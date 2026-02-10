@@ -180,12 +180,12 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🌬 Дыхание дня (твой сегодняшний ритм)", callback_data="daily_practice")],
-            [InlineKeyboardButton("🔄 Вернуться к дыханию (вернуться к глубине)", callback_data="practice_again")],
-            [InlineKeyboardButton("📚 Заметки Кабира (между строк)", callback_data="library")],
-            [InlineKeyboardButton("🌀 Дневник состояний (заметить, что происходит внутри)", callback_data="analytics")],
+            [InlineKeyboardButton("🌬 Дыхание дня", callback_data="daily_practice")],
+            [InlineKeyboardButton("🔄 Вернуться к дыханию", callback_data="practice_again")],
+            [InlineKeyboardButton("📚 Заметки Кабира", callback_data="library")],
+            [InlineKeyboardButton("🌀 Дневник состояний", callback_data="analytics")],
             [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
-            [InlineKeyboardButton("✨ Глубже в путешествие (подписка и управление)", callback_data="subscription")] if _get_user_current_day(
+            [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if _get_user_current_day(
                 update.effective_user.id
             ) >= 3 else [],
             [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
