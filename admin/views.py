@@ -1,12 +1,10 @@
 from flask import redirect, request, session, url_for
 from flask_admin.contrib.sqla import ModelView
-from wtforms import TextAreaField
+from wtforms import TextAreaField, ValidationError
 from wtforms.widgets import TextArea
-
 
 # Админы по TG ID (замените на свои)
 ADMIN_IDS = {392350805}
-
 
 
 class BaseSecureModelView(ModelView):
@@ -71,6 +69,23 @@ class MusicView(BaseSecureModelView):
     column_list = ("id", "audio_id", "category", "premium")
     column_filters = ("category", "premium")
     form_columns = None
+
+
+class VideoView(BaseSecureModelView):
+    column_list = ("id", "video_id", "premium")
+    column_filters = ("premium",)
+    form_columns = ("video_id", "premium")
+
+    column_labels = {
+        'video_id': 'Telegram Video File ID',
+        'premium': 'Премиум контент'
+    }
+
+    # Можно добавить проверку валидности file_id
+    def on_model_change(self, form, model, is_created):
+        # Проверяем, что video_id не пустой
+        if not model.video_id or not model.video_id.strip():
+            raise ValidationError('Video File ID обязателен')
 
 
 class FavoriteView(BaseSecureModelView):

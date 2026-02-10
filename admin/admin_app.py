@@ -17,6 +17,7 @@ from admin.views import (
     SubscriptionView,
     UserAchievementView,
     UserView,
+    VideoView,
 )
 from src.db.database import SessionLocal
 from src.db.models import (
@@ -33,6 +34,7 @@ from src.db.models import (
     Subscription,
     User,
     UserAchievement,
+    Video,
 )
 
 
@@ -61,12 +63,11 @@ def create_admin_app():
     admin.add_view(EmotionView(Emotion, session, category="Users"))
     admin.add_view(FavoriteView(Favorite, session, category="Users"))
     admin.add_view(NotificationLogView(NotificationLog, session, category="System"))
-
-    # Новые View
     admin.add_view(PracticeLogView(PracticeLog, session, category="Analytics"))
     admin.add_view(PhraseView(Phrase, session, category="Content"))
     admin.add_view(AchievementView(Achievement, session, category="System"))
     admin.add_view(UserAchievementView(UserAchievement, session, category="Analytics"))
     admin.add_view(SubscriptionView(Subscription, session, category="Users"))
+    admin.add_view(VideoView(Video, session, category="Content"))
 
     return app
