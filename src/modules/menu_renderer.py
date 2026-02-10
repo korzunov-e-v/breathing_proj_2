@@ -103,17 +103,36 @@ async def replace_screen(
     text: str,
     reply_markup,
     media=None,
+    audio=None,
     parse_mode="Markdown",
 ):
+    """
+    Заменяет текущее сообщение экрана на новое.
+
+    Args:
+        chat_id: ID чата
+        context: Контекст бота
+        text: Текст сообщения
+        reply_markup: Клавиатура
+        media: Фото/изображение (file_id или URL)
+        audio: Аудио файл (file_id или URL)
+        parse_mode: Режим парсинга текста
+    """
+    from src.context import UserContextData
+
     user_data: UserContextData = context.user_data
     old_id = user_data.screen_message_id
+
+    # Удаляем старое сообщение
     if old_id:
         try:
             await context.bot.delete_message(chat_id, old_id)
         except:
             pass
 
+    # Отправляем новое сообщение в зависимости от типа медиа
     if media:
+        # Отправляем фото с подписью
         msg = await context.bot.send_photo(
             chat_id=chat_id,
             photo=media,
@@ -121,7 +140,17 @@ async def replace_screen(
             parse_mode=parse_mode,
             reply_markup=reply_markup,
         )
+    elif audio:
+        # Отправляем аудио с подписью
+        msg = await context.bot.send_audio(
+            chat_id=chat_id,
+            audio=audio,
+            caption=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+        )
     else:
+        # Отправляем простое текстовое сообщение
         msg = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -129,8 +158,8 @@ async def replace_screen(
             reply_markup=reply_markup,
         )
 
+    # Сохраняем ID нового сообщения
     user_data.screen_message_id = msg.message_id
-
 
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id

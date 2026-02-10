@@ -85,7 +85,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
         text = f"🎶 {category}\n\nВыберите трек:"
         if any(music.premium for music in music_tracks) and not is_subscribed:
-            text += "\n\n🔒 - треки доступны по подписке"
+            text += "\n\n$ - треки доступны по подписке"
 
         await replace_screen(
             chat_id=update.effective_chat.id,
@@ -99,84 +99,50 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Воспроизводит музыку"""
+    """Показывает меню с музыкой с возможностью воспроизведения"""
     query = update.callback_query
     await query.answer()
 
-    callback_data = query.data
-
-    if callback_data.startswith("premium_music_"):
-        # Пользователь пытается открыть премиум музыку без подписки
-        music_id = int(callback_data.replace("premium_music_", ""))
-
-        db = SessionLocal()
-        try:
-            music = db.query(Music).filter(Music.id == music_id).first()
-            if music:
-                await replace_screen(
-                    chat_id=update.effective_chat.id,
-                    context=context,
-                    text=f"🎶 {music.category}\n\n🔒 Этот трек доступен только по подписке.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
-                            [InlineKeyboardButton("🔙 Назад", callback_data=f"music_category_{music.category}")]
-                        ]
-                    ),
-                    media=None,
-                )
-        finally:
-            db.close()
-        return
-
-    # Обычная музыка
-    music_id = int(callback_data.replace("music_", ""))
+    music_id = int(query.data.replace("music_", ""))
 
     db = SessionLocal()
     try:
         music = db.query(Music).filter(Music.id == music_id).first()
 
-        if not music:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="Трек не найден."
-            )
-            return
-
-        # Проверяем подписку для премиум треков
+        # Проверяем подписку
         user_id = update.effective_user.id
         is_subscribed = await _is_user_subscribed(user_id)
 
+        # Определяем доступность трека
         if music.premium and not is_subscribed:
+            # Премиум трек без подписки
+            text = f"*🎶 {music.category}*\n\n🔒 Этот трек доступен только по подписке."
+            buttons = [
+                [InlineKeyboardButton("✨ Оформить подписку", callback_data="subscription")],
+                [InlineKeyboardButton("🔙 Назад к трекам", callback_data=f"music_category_{music.category}")]
+            ]
+
             await replace_screen(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"🎶 {music.category}\n\n🔒 Этот трек доступен только по подписке.",
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
-                        [InlineKeyboardButton("🔙 Назад", callback_data=f"music_category_{music.category}")]
-                    ]
-                ),
+                text=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
                 media=None,
             )
         else:
-            # Отправляем аудио
-            try:
-                await context.bot.send_audio(
-                    chat_id=update.effective_chat.id,
-                    audio=music.audio_id,
-                    caption=f"🎶 {music.category}\n\nНаслаждайтесь звуком...",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [InlineKeyboardButton("🔙 Назад к трекам", callback_data=f"music_category_{music.category}")]
-                        ]
-                    )
-                )
-            except Exception as e:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f"Не удалось воспроизвести трек. Ошибка: {e}"
-                )
+            # Доступный трек - отправляем аудио через replace_screen
+            text = f"*🎶 {music.category}*\n\nНаслаждайтесь звуком..."
+            buttons = [
+                [InlineKeyboardButton("🔙 Назад к трекам", callback_data=f"music_category_{music.category}")]
+            ]
+
+            await replace_screen(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                audio=music.audio_id,
+            )
+
     finally:
         db.close()
