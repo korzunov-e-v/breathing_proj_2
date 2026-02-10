@@ -63,7 +63,7 @@ def _detect_type(media_file: str) -> str:
     s = str(media_file).lower()
     if s.endswith(".mp4") or s.startswith("baac"):
         return "video"
-    if s.endswith(".mp3") or s.startswith("caac"):
+    if s.endswith(".mp3") or s.endswith(".ogg") or s.startswith("caac") or s.startswith("cqaca"):
         return "audio"
     return "photo"
 
