@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
 from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
+from src.modules.library.library_video import show_video_content, show_video
 from src.modules.library.menu import show_library_menu
 from src.modules.llm.chat import handle_chat, stop_chat
 from src.modules.menu_renderer import show_main_menu
@@ -35,6 +36,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "library": show_library_menu,
     "library_notes": show_library_content,
     "library_sounds": show_music_content,
+    "library_videos": show_video_content,
 
     # онбординг
     "send_onboarding": send_onboarding,
@@ -71,6 +73,7 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("article_", show_article),
     ("music_category_", show_music_by_category),
     ("music_", play_music),
+    ("video_", show_video),
 ]
 
 

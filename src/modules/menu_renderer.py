@@ -1,6 +1,5 @@
 import logging
 
-import yaml
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
@@ -104,6 +103,7 @@ async def replace_screen(
     reply_markup,
     media=None,
     audio=None,
+    video=None,
     parse_mode="Markdown",
 ):
     """
@@ -116,6 +116,7 @@ async def replace_screen(
         reply_markup: Клавиатура
         media: Фото/изображение (file_id или URL)
         audio: Аудио файл (file_id или URL)
+        video: Видео файл (file_id или URL)
         parse_mode: Режим парсинга текста
     """
     from src.context import UserContextData
@@ -145,6 +146,15 @@ async def replace_screen(
         msg = await context.bot.send_audio(
             chat_id=chat_id,
             audio=audio,
+            caption=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+        )
+    elif video:
+        # Отправляем видео с подписью
+        msg = await context.bot.send_video(
+            chat_id=chat_id,
+            video=video,
             caption=text,
             parse_mode=parse_mode,
             reply_markup=reply_markup,
