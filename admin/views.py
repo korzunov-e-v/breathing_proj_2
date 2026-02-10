@@ -71,6 +71,12 @@ class MusicView(BaseSecureModelView):
     form_columns = None
 
 
+class MiniPracticeView(BaseSecureModelView):
+    column_list = ("id", "audio_id", "premium")
+    column_filters = ("premium",)
+    form_columns = None
+
+
 class VideoView(BaseSecureModelView):
     column_list = ("id", "video_id", "premium")
     column_filters = ("premium",)

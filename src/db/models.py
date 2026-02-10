@@ -251,6 +251,21 @@ class Music(Base):
         return f"{self.category} - {self.audio_id[:20]}..."
 
 
+class MiniPractice(Base):
+    __tablename__ = "mini_practices"
+
+    id = Column(Integer, primary_key=True)
+    audio_id = Column(String(255))
+
+    premium = Column(Boolean, default=False)
+
+    def __repr__(self):
+        return f"MiniPractice(id={self.id}')"
+
+    def __str__(self):
+        return f"{self.audio_id[:20]}..."
+
+
 class Video(Base):
     __tablename__ = "video"
 

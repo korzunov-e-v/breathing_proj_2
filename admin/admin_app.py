@@ -18,6 +18,7 @@ from admin.views import (
     UserAchievementView,
     UserView,
     VideoView,
+    MiniPracticeView,
 )
 from src.db.database import SessionLocal
 from src.db.models import (
@@ -35,6 +36,7 @@ from src.db.models import (
     User,
     UserAchievement,
     Video,
+    MiniPractice,
 )
 
 
@@ -69,5 +71,6 @@ def create_admin_app():
     admin.add_view(UserAchievementView(UserAchievement, session, category="Analytics"))
     admin.add_view(SubscriptionView(Subscription, session, category="Users"))
     admin.add_view(VideoView(Video, session, category="Content"))
+    admin.add_view(MiniPracticeView(MiniPractice, session, category="Content"))
 
     return app
