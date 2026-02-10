@@ -66,32 +66,21 @@ class ArticleView(BaseSecureModelView):
 
 
 class MusicView(BaseSecureModelView):
-    column_list = ("id", "audio_id", "category", "premium")
+    column_list = ("id", "title", "audio_id", "category", "premium")
     column_filters = ("category", "premium")
     form_columns = None
 
 
 class MiniPracticeView(BaseSecureModelView):
-    column_list = ("id", "audio_id", "premium")
+    column_list = ("id", "title", "audio_id", "premium")
     column_filters = ("premium",)
     form_columns = None
 
 
 class VideoView(BaseSecureModelView):
-    column_list = ("id", "video_id", "premium")
+    column_list = ("id", "title", "video_id", "premium")
     column_filters = ("premium",)
-    form_columns = ("video_id", "premium")
-
-    column_labels = {
-        'video_id': 'Telegram Video File ID',
-        'premium': 'Премиум контент'
-    }
-
-    # Можно добавить проверку валидности file_id
-    def on_model_change(self, form, model, is_created):
-        # Проверяем, что video_id не пустой
-        if not model.video_id or not model.video_id.strip():
-            raise ValidationError('Video File ID обязателен')
+    form_columns = None
 
 
 class FavoriteView(BaseSecureModelView):

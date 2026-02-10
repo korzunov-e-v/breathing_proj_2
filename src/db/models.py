@@ -239,6 +239,7 @@ class Music(Base):
     __tablename__ = "music"
 
     id = Column(Integer, primary_key=True)
+    title = Column(String(500))
     audio_id = Column(String(255))
     category = Column(String(255))
 
@@ -255,6 +256,7 @@ class MiniPractice(Base):
     __tablename__ = "mini_practices"
 
     id = Column(Integer, primary_key=True)
+    title = Column(String(500))
     audio_id = Column(String(255))
 
     premium = Column(Boolean, default=False)
@@ -270,6 +272,7 @@ class Video(Base):
     __tablename__ = "video"
 
     id = Column(Integer, primary_key=True)
+    title = Column(String(500))
     video_id = Column(String(255))
     premium = Column(Boolean, default=False)
 

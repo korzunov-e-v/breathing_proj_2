@@ -52,21 +52,6 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
     try:
         music_tracks = db.query(Music).filter(Music.category == category).all()
-
-        if not music_tracks:
-            await replace_screen(
-                chat_id=update.effective_chat.id,
-                context=context,
-                text=f"В категории '{category}' пока нет музыки.",
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [InlineKeyboardButton("🔙 Назад", callback_data="library_sounds")]
-                    ]
-                ),
-                media=None,
-            )
-            return
-
         # Проверяем подписку пользователя
         user_id = update.effective_user.id
         is_subscribed = await _is_user_subscribed(user_id)
@@ -78,7 +63,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
             callback_data = f"music_{music.id}"
 
             # Создаем описание для трека
-            description = f"{prefix}Трек {music.id}"
+            description = f"{prefix}{music.title}"
             buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_sounds")])

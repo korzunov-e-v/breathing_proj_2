@@ -51,7 +51,7 @@ async def show_mini_practices_content(update: Update, context: ContextTypes.DEFA
             callback_data = f"minipractice_{practice.id}"
 
             # Создаем описание для практики
-            practice_title = f"Практика {practice.id}"
+            practice_title = f"{practice.title}"
             description = f"{prefix}{practice_title}"
 
             # Обрезаем если слишком длинное
@@ -86,7 +86,7 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     db = SessionLocal()
     try:
-        practice = db.query(MiniPractice).filter(MiniPractice.id == practice_id).first()
+        practice: MiniPractice = db.query(MiniPractice).filter(MiniPractice.id == practice_id).first()
 
         # Проверяем подписку
         user_id = update.effective_user.id
@@ -96,7 +96,7 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"*🌬 Практика {practice.id}*\n\n🔒 Эта практика доступна только по подписке.",
+                text=f"*🌬 Практика {practice.id} - {practice.title}*\n\n🔒 Эта практика доступна только по подписке.",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
@@ -107,7 +107,7 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
         else:
             # Показываем практику с аудио
-            text = f"*🌬 Практика {practice.id}*"
+            text = f"*🌬 Практика {practice.id} - {practice.title}*"
 
             buttons = [
                 [InlineKeyboardButton("🔙 Назад к практикам", callback_data="library_practices")]
