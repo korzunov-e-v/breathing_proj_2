@@ -4,6 +4,7 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
 from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
 from src.modules.library.menu import show_library_menu
 from src.modules.llm.chat import handle_chat, stop_chat
@@ -33,6 +34,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "stop_chat": stop_chat,
     "library": show_library_menu,
     "library_notes": show_library_content,
+    "library_sounds": show_music_content,
 
     # онбординг
     "send_onboarding": send_onboarding,
@@ -67,6 +69,8 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("timezone_", handle_timezone_selection),
     ("article_category_", show_articles_by_category),
     ("article_", show_article),
+    ("music_category_", show_music_by_category),
+    ("music_", play_music),
 ]
 
 
