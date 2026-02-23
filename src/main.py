@@ -11,7 +11,6 @@ from telegram.ext import (
 )
 from telegram.ext import ContextTypes
 
-from src.app_tasks import start_scheduler
 from src.context import UserContextData, context_types
 from src.db.database import create_tables, SessionLocal
 from src.db.models import User
@@ -20,6 +19,7 @@ from src.modules.llm.chat import handle_chat_message
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import send_onboarding
 from src.modules.practice.rate import handle_comment_text
+from src.modules.reminders.tasks import start_scheduler
 from src.modules.settings.time import handle_change_time
 from src.router import router
 from src.settings import settings
