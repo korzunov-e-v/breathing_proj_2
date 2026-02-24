@@ -2,6 +2,8 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData
+from src.db.database import SessionLocal
+from src.db.models import Image
 from src.modules.menu_renderer import cleanup_practice_messages, replace_screen
 
 
@@ -35,11 +37,19 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🌌 В тишину", callback_data="menu")],
         ]
     )
-    media = "AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ"
+    db = SessionLocal()
+    try:
+        image: Image = db.query(Image).filter(Image.title == "Меню").first()
+        main_menu_image = image.image_id
+    finally:
+        db.close()
+
+
+    media = ""
     await replace_screen(
         chat_id=chat_id,
         context=context,
         text=text,
         reply_markup=keyboard,
-        media=media,
+        media=main_menu_image,
     )

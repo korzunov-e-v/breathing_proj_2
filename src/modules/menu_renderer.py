@@ -200,7 +200,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db = SessionLocal()
     try:
-        image: Image = db.query(Image).filter(Image.id == 1).first()
+        image: Image = db.query(Image).filter(Image.title == "Меню").first()
         main_menu_image = image.image_id
     finally:
         db.close()
