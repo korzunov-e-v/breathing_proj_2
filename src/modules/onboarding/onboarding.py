@@ -76,7 +76,7 @@ async def retry_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = f"Иногда пауза - это уже начало. Возвращайся в правильное для себя время..."
     buttons = [
-        {"text": "🌬️ Вернуться к дыханию", "goto": "send_onboarding"},
+        {"text": "🌬️ Вернуться к дыханию", "goto": "continue_onboarding"},
     ]
     await replace_menu_message(
         chat_id=query.message.chat.id,
