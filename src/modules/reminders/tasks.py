@@ -75,7 +75,7 @@ class TaskScheduler:
                                 user_utc_time == (now - timedelta(minutes=1)).strftime("%H:%M") or
                                 user_utc_time == (now + timedelta(minutes=1)).strftime("%H:%M")):
                             skip_reasons['wrong_time'] += 1
-                            # continue
+                            continue
 
                         # Проверяем, не отправили ли уже уведомление сегодня
                         last_notification = db.query(NotificationLog).filter(
