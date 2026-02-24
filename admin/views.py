@@ -3,6 +3,8 @@ from flask_admin.contrib.sqla import ModelView
 from wtforms import TextAreaField, ValidationError
 from wtforms.widgets import TextArea
 
+from src.db.models import Image
+
 # Админы по TG ID (замените на свои)
 ADMIN_IDS = {392350805}
 
@@ -140,3 +142,8 @@ class SubscriptionView(BaseSecureModelView):
     column_list = ("id", "user", "plan_type", "started_at", "expires_at", "is_active")
     column_filters = ("plan_type", "is_active", "started_at")
     form_columns = ("user", "plan_type", "started_at", "expires_at", "is_active")
+
+
+class ImageView(BaseSecureModelView):
+    column_list = ("id", "title", "image_id")
+    form_columns = ("title", "image_id",)

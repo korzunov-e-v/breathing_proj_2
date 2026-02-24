@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.context import UserContextData, UserState
 from src.db.database import SessionLocal
-from src.db.models import User
+from src.db.models import User, Image
 from src.telegram_utils import _detect_type
 
 
@@ -198,6 +198,14 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     )
 
+    db = SessionLocal()
+    try:
+        image: Image = db.query(Image).filter(Image.id == 1).first()
+        main_menu_image = image.image_id
+    finally:
+        db.close()
+
+
     await replace_screen(
         chat_id=chat_id,
         context=context,
@@ -212,7 +220,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Каждый путь здесь — про заботу и присутствие.
         """,
         reply_markup=keyboard,
-        media="AgACAgIAAxkBAAIFPGksUH2iD8YETWJR6ohqgFWItyikAAI0DWsbwj5oSeqRrcBf8bH-AQADAgADeAADNgQ",
+        media=main_menu_image,
     )
 
 

@@ -283,6 +283,21 @@ class Video(Base):
         return f"{self.video_id[:20]}..."
 
 
+class Image(Base):
+    __tablename__ = "images"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(500))
+    image_id = Column(String(255))
+    premium = Column(Boolean, default=False)
+
+    def __repr__(self):
+        return f"Image(id={self.id}')"
+
+    def __str__(self):
+        return f"{self.image_id[:20]}..."
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
 
