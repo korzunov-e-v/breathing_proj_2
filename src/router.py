@@ -16,7 +16,7 @@ from src.modules.onboarding.onboarding import (
     send_onboarding,
     continue_onboarding,
     retry_onboarding,
-    finish_onboarding,
+    change_time,
     setting_timezone
 )
 from src.modules.practice.mood import ask_mood_after_practice, handle_mood_selection
@@ -25,7 +25,9 @@ from src.modules.practice.pract import show_daily_practice, show_practice_again,
 from src.modules.practice.rate import handle_comment_skip
 from src.modules.reminders.handlers import remind_later_handler, skip_today_handler
 from src.modules.settings.notifications import pause_notifications_handler
+from src.modules.settings.settings import toggle_notifications_handler, settings_handler
 from src.modules.settings.time import handle_change_time, handle_time_selection, handle_timezone_selection
+from src.settings import settings
 
 Handler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
 EXACT_ROUTES: dict[str, Handler] = {
@@ -47,10 +49,12 @@ EXACT_ROUTES: dict[str, Handler] = {
     "continue_onboarding": continue_onboarding,
     "retry_onboarding": retry_onboarding,
     "setting_timezone": setting_timezone,
-    "finish_onboarding": finish_onboarding,
+    "finish_onboarding": change_time,
 
     # время/настройки
-    "change_time": handle_change_time,
+    "settings": settings_handler,
+    "change_time": change_time,
+    "toggle_notifications": toggle_notifications_handler,
 
     # практика
     "practice_complete": handle_practice_completion,

@@ -9,7 +9,6 @@ class UserState(str, Enum):
     """Enum for user states"""
     IDLE = "idle"
     CHAT = "chat"
-    WAITING_TIMEZONE = "waiting_timezone"
     WAITING_TIME = "waiting_time"
     WAITING_MOOD_BEFORE = "waiting_mood_before"
     WAITING_MOOD_AFTER = "waiting_mood_after"

@@ -91,7 +91,6 @@ async def setting_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_data: UserContextData = context.user_data
-    user_data.state = UserState.WAITING_TIMEZONE
 
     text = '''
 У каждого свой ритм — и я предлагаю тебе выбрать свой.  
@@ -110,7 +109,7 @@ async def setting_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def finish_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_data: UserContextData = context.user_data

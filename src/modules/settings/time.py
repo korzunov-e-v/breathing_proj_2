@@ -8,6 +8,7 @@ from src.db.database import SessionLocal
 from src.db.models import User
 from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message
+from src.modules.settings.settings import settings_handler
 
 
 async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -130,30 +131,26 @@ async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAUL
             user_data: UserContextData = context.user_data
             user_data.state = UserState.WAITING_TIME
 
-            text = '''
-У каждого свой ритм — и я предлагаю тебе выбрать свой.  
-Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+            if user.practice_time:
+                await settings_handler(update, context)
+            else:
 
-✦ Просто напиши мне подходящее для себя время.
+                text = '''
+    У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+    Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+    
+    ✦ Просто напиши мне подходящее для себя время.
+    
+    _Формат: ЧЧ:ММ_ 
+                '''
 
-_Формат: ЧЧ:ММ_ 
-            '''
-
-            await replace_menu_message(
-                chat_id=query.message.chat.id,
-                context=context,
-                text=text,
-                buttons=[],
-                media_files=[],
-            )
-        else:
-            await replace_menu_message(
-                chat_id=query.message.chat.id,
-                context=context,
-                text="Пользователь не найден. Начните с /start",
-                buttons=[],
-                media_files=[],
-            )
+                await replace_menu_message(
+                    chat_id=query.message.chat.id,
+                    context=context,
+                    text=text,
+                    buttons=[],
+                    media_files=[],
+                )
     finally:
         db.close()
 
