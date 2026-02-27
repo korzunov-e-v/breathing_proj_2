@@ -69,7 +69,7 @@ class TaskScheduler:
                         user_local_time = user.practice_time  # в базе данных как "11:00"
                         user_gmt_offset = user.timezone  # в базе данных как "5", то есть +5 GMT Yekaterinburg
                         local_time = datetime.strptime(user_local_time, "%H:%M")
-                        user_utc_time = (local_time - timedelta(hours=int(user_gmt_offset))).time()
+                        user_utc_time = (local_time - timedelta(hours=int(user_gmt_offset))).time().strftime("%H:%M")
 
                         if not (user_utc_time == current_time or
                                 user_utc_time == (now - timedelta(minutes=1)).strftime("%H:%M") or
