@@ -80,7 +80,7 @@ class MiniPracticeView(BaseSecureModelView):
 
 
 class VideoView(BaseSecureModelView):
-    column_list = ("id", "title", "video_id", "premium")
+    column_list = ("id", "title", "category", "video_id", "premium")
     column_filters = ("premium",)
     form_columns = None
 

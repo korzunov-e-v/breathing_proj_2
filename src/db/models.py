@@ -274,6 +274,7 @@ class Video(Base):
 
     id = Column(Integer, primary_key=True)
     title = Column(String(500))
+    category = Column(String(500))
     video_id = Column(String(255))
     premium = Column(Boolean, default=False)
 
