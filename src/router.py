@@ -8,7 +8,7 @@ from src.modules.analytics.analytics import show_analytics
 from src.modules.library.library_mini_practice import show_mini_practice, show_mini_practices_content
 from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
 from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
-from src.modules.library.library_video import show_video_content, show_video
+from src.modules.library.library_video import show_video_content, show_video, show_video_by_category
 from src.modules.library.menu import show_library_menu
 from src.modules.llm.chat import handle_chat, stop_chat
 from src.modules.menu_renderer import show_main_menu
@@ -81,6 +81,7 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("article_", show_article),
     ("music_category_", show_music_by_category),
     ("music_", play_music),
+    ("video_category_", show_video_by_category),
     ("video_", show_video),
     ("minipractice_", show_mini_practice),
 ]
