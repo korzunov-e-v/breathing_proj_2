@@ -155,7 +155,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             db.commit()
 
             # Формируем текст завершения
-            completion_text = ""
+            completion_text = "Спасибо."
             if practice and practice.outro_text:
                 completion_text = f"""
 ⟡ Между 
