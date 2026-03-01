@@ -121,7 +121,8 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 practice = db.query(Practice).filter(Practice.id == practice_id).first()
                 practice_type = "repeat"
             else:
-                practice_id = user.current_day
+                practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+                practice_id = practice.id if practice else None
                 practice = db.query(Practice).filter(Practice.day_number == practice_id).first()
                 practice_type = "daily"
 
