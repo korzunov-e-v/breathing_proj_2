@@ -30,10 +30,10 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
         # Определяем, какую практику показывать
         if user_data.practice_data.selected_practice_id:
             # Если есть выбранная практика (из повторных или библиотеки), используем ее
-            practice = db.query(Practice).filter(Practice.id == user_data.practice_data.selected_practice_id).first()
+            practice: Practice = db.query(Practice).filter(Practice.id == user_data.practice_data.selected_practice_id).first()
         else:
             # Иначе показываем практику текущего дня
-            practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+            practice: Practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
 
         # Если есть аудио - отправляем его
         if practice.audio_file_id:
@@ -46,6 +46,17 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
                 user_data.practice_data.practice_message_ids.append(audio_msg.message_id)
             except Exception as e:
                 logging.error(f"Ошибка отправки аудио: {e}")
+        if practice.video_file_id:
+            try:
+                video_msg = await context.bot.send_video(
+                    chat_id=chat_id,
+                    video=practice.video_file_id,
+                    caption="🎧 Видео для практики"
+                )
+                user_data.practice_data.practice_message_ids.append(video_msg.message_id)
+            except Exception as e:
+                logging.error(f"Ошибка отправки видео: {e}")
+
 
         # Сразу показываем меню завершения
         buttons = [

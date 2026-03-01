@@ -147,10 +147,12 @@ class TaskScheduler:
                 db.close()
 
             text = f"""
-🧘 *Доброе утро!*
+🧘Твой момент наступил!
+
+🌿 Просто вернись к дыханию.
 
 Сегодня {day_text} вашего дыхательного путешествия.
-Время практики: *{user.practice_time}*
+Время дыхания: *{user.practice_time}*
 
 {phrase_text}
 
@@ -158,9 +160,7 @@ class TaskScheduler:
 """
 
             keyboard = [
-                {"text": "🧘 Начать практику", "goto": "daily_practice"},
-                {"text": "⏰ Перенести на позже", "goto": "delay_practice"},
-                {"text": "🔕 Выключить уведомления", "goto": "pause_notifications"}
+                {"text": "🧘 Вдох", "goto": "daily_practice"}
             ]
 
             # Отправляем сообщение

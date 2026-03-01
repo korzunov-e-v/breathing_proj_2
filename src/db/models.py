@@ -89,6 +89,7 @@ class Practice(Base):
     id = Column(Integer, primary_key=True)
     day_number = Column(Integer, index=True, nullable=False)
     audio_file_id = Column(String(500))
+    video_file_id = Column(String(500))
     intro_text = Column(Text)
     outro_text = Column(Text)
     premium = Column(Boolean, default=False)
