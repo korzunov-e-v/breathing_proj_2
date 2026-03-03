@@ -154,7 +154,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="*🌀 Дневник состояний*\n\nПроизошла ошибка при загрузке данных. Попробуйте позже.",
             reply_markup=InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+                    [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
                 ]
             ),
             media_files=None,
