@@ -231,7 +231,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Каждый путь здесь — про заботу и присутствие.
         """,
         reply_markup=keyboard,
-        media=main_menu_image,
+        animation=main_menu_image,
     )
 
 
