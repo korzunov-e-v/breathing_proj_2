@@ -100,7 +100,10 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
                 prefix = "$ " if video.premium else "▶️ "
                 callback_data = f"video_{video.id}"
 
-                video_title = getattr(video, "title", None) or f"Видео {video.id}"
+                if video.premium and not is_subscribed:
+                    video_title = "Премиум контент"
+                else:
+                    video_title = getattr(video, "title", None) or f"Видео {video.id}"
                 description = f"{prefix}{video_title}"
                 if len(description) > 40:
                     description = description[:37] + "..."
