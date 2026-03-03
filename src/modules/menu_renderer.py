@@ -210,7 +210,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=chat_id,
         context=context,
         text="""
-*🌿 Главное пространство*
+*🌿 Моё пространство*
 
 **Здесь нет спешки и задач.**  
 Здесь ты возвращаешься к себе —  

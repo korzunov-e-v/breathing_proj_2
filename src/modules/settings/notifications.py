@@ -10,17 +10,17 @@ async def pause_notifications_handler(update: Update, context: ContextTypes.DEFA
     await query.answer()
 
     user_id = update.effective_user.id
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            user: User
-            # Устанавливаем флаг паузы уведомлений
-            user.freeze_reminders = True
-            db.commit()
+    with SessionLocal() as db:
+        try:
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                user: User
+                # Устанавливаем флаг паузы уведомлений
+                user.freeze_reminders = True
+                db.commit()
 
-            await query.edit_message_text("🔕 Уведомления приостановлены. Вы можете возобновить их в любое время.")
-    finally:
-        db.close()
+                await query.edit_message_text("🔕 Уведомления приостановлены. Вы можете возобновить их в любое время.")
+        finally:
+            db.close()
 
 

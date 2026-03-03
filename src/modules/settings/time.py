@@ -24,16 +24,16 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
             umt = "0" + umt
         time = datetime.time.fromisoformat(umt)
         user_id = update.effective_user.id
-        db = SessionLocal()
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            user.practice_time = time.strftime("%H:%M")
-            db.commit()
-            user_data.state = UserState.IDLE
-            await replace_menu_message(
-                chat_id=update.message.chat.id,
-                context=context,
-                text=f"""
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                user.practice_time = time.strftime("%H:%M")
+                db.commit()
+                user_data.state = UserState.IDLE
+                await replace_menu_message(
+                    chat_id=update.message.chat.id,
+                    context=context,
+                    text=f"""
 Я услышал твой ритм 🌿  
 Мы будем возвращаться к дыханию каждый день в {user.practice_time}.
 
@@ -41,18 +41,18 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
 Без спешки. Без давления. В твоём темпе.
 
 Когда будешь готов — просто прикоснись к нашему пространству.
-                """,
-                buttons=[{"text": "🌌 В моё пространство", "goto": "menu"}],
-                media_files=[],
-            )
-        else:
-            await replace_menu_message(
-                chat_id=update.message.chat.id,
-                context=context,
-                text="Пользователь не найден. Начните с /start",
-                buttons=[],
-                media_files=[],
-            )
+                    """,
+                    buttons=[{"text": "🌌 В моё пространство", "goto": "menu"}],
+                    media_files=[],
+                )
+            else:
+                await replace_menu_message(
+                    chat_id=update.message.chat.id,
+                    context=context,
+                    text="Пользователь не найден. Начните с /start",
+                    buttons=[],
+                    media_files=[],
+                )
     except ValueError:
         await replace_menu_message(
             chat_id=update.message.chat.id,
@@ -82,25 +82,25 @@ async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_T
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Сохраняем время в БД
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            user.practice_time = time_str
-            db.commit()
+    with SessionLocal() as db:
+        try:
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                user.practice_time = time_str
+                db.commit()
 
-            # Показываем главное меню из YAML после настройки
-            await query.edit_message_text(
-                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
-                f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
-                f"Когда будете готовы начать - нажмите кнопку ниже:",
-                parse_mode='Markdown',
-                reply_markup=reply_markup
-            )
-        else:
-            await query.edit_message_text("Пользователь не найден. Начните с /start")
-    finally:
-        db.close()
+                # Показываем главное меню из YAML после настройки
+                await query.edit_message_text(
+                    f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
+                    f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
+                    f"Когда будете готовы начать - нажмите кнопку ниже:",
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
+            else:
+                await query.edit_message_text("Пользователь не найден. Начните с /start")
+        finally:
+            db.close()
 
 
 async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -120,39 +120,39 @@ async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAUL
     user_id = query.from_user.id
 
     # Сохраняем часовой пояс в БД
-    db = SessionLocal()
-    try:
-        user: User = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            user.timezone = gmt_offset
-            db.commit()
+    with SessionLocal() as db:
+        try:
+            user: User = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                user.timezone = gmt_offset
+                db.commit()
 
-            # Переходим к выбору времени практики
-            user_data: UserContextData = context.user_data
-            user_data.state = UserState.WAITING_TIME
+                # Переходим к выбору времени практики
+                user_data: UserContextData = context.user_data
+                user_data.state = UserState.WAITING_TIME
 
-            if user.practice_time:
-                await settings_handler(update, context)
-            else:
+                if user.practice_time:
+                    await settings_handler(update, context)
+                else:
 
-                text = '''
-    У каждого свой ритм — и я предлагаю тебе выбрать свой.  
-    Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
-    
-    ✦ Просто напиши мне подходящее для себя время.
-    
-    _Формат: ЧЧ:ММ_ 
-                '''
+                    text = '''
+        У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+        Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+        
+        ✦ Просто напиши мне подходящее для себя время.
+        
+        _Формат: ЧЧ:ММ_ 
+                    '''
 
-                await replace_menu_message(
-                    chat_id=query.message.chat.id,
-                    context=context,
-                    text=text,
-                    buttons=[],
-                    media_files=[],
-                )
-    finally:
-        db.close()
+                    await replace_menu_message(
+                        chat_id=query.message.chat.id,
+                        context=context,
+                        text=text,
+                        buttons=[],
+                        media_files=[],
+                    )
+        finally:
+            db.close()
 
 
 def get_timezones_kb():

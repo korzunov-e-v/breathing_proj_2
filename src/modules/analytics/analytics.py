@@ -24,30 +24,117 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
 
-    db = SessionLocal()
-    try:
-        # Получаем пользователя
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        # Получаем практики пользователя
-        practice_logs = db.query(PracticeLog).filter(
-            PracticeLog.user_id == user.id
-        ).order_by(
-            desc(PracticeLog.completed_at)
-        ).limit(50).all()
+    with SessionLocal() as db:
+        try:
+            # Получаем пользователя
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            # Получаем практики пользователя
+            practice_logs = db.query(PracticeLog).filter(
+                PracticeLog.user_id == user.id
+            ).order_by(
+                desc(PracticeLog.completed_at)
+            ).limit(50).all()
 
-        if not practice_logs:
-            text = """
-*🌀 Дневник состояний*
+            if not practice_logs:
+                text = """
+    *🌀 Дневник состояний*
+    
+    Ты пока не выполнил ни одной практики.
+    
+    Вернись после практики дыхания, 
+    чтобы увидеть здесь свои изменения.
+                """
 
-Ты пока не выполнил ни одной практики.
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("🌬 Начать практику", callback_data="daily_practice")],
+                        [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
+                    ]
+                )
 
-Вернись после практики дыхания, 
-чтобы увидеть здесь свои изменения.
-            """
+                await replace_menu_message(
+                    chat_id=update.effective_chat.id,
+                    context=context,
+                    text=text,
+                    reply_markup=keyboard,
+                    media_files=None,
+                )
+                return
 
+            # Формируем дневник эмоций
+            text = "*🌀 Дневник состояний*\n\n"
+
+            # Раздел 1: Последние практики с эмоциями
+            text += "*Последние практики:*\n\n"
+            for log in practice_logs[:10]:  # Показываем последние 10
+                date_str = log.completed_at.strftime("%d.%m %H:%M") if log.completed_at else "Дата неизвестна"
+
+                practice_name = f"Практика #{log.practice_id}"
+                if log.practice and hasattr(log.practice, 'day_number'):
+                    practice_name = f"День {log.practice.day_number}"
+
+                emotions_line = ""
+                if log.mood_before:
+                    emotions_line += f"{log.mood_before} → "
+
+                emotions_line += f"{practice_name} ({date_str})"
+
+                if log.mood_after:
+                    emotions_line += f" → {log.mood_after}"
+
+                text += f"• {emotions_line}\n"
+
+            text += "\n"
+            # Раздел 2: Статистика
+            text += "*Статистика:*\n"
+
+            total_practices = len(practice_logs)
+            text += f"• Всего практик: {total_practices}\n"
+
+            # Практики за последние 30 дней
+            thirty_days_ago = datetime.now(tz=UTC) - timedelta(days=30)
+            recent_practices = [log for log in practice_logs if log.completed_at and log.completed_at >= thirty_days_ago]
+            text += f"• За 30 дней: {len(recent_practices)}\n"
+
+            # Самые частые эмоции
+            all_moods = [log.mood_before for log in practice_logs if log.mood_before] + \
+                        [log.mood_after for log in practice_logs if log.mood_after]
+
+            if all_moods:
+                common_moods = Counter(all_moods).most_common(3)
+                text += f"• Частые состояния: {', '.join([m[0] for m in common_moods])}\n"
+
+            # Самые частые смены эмоций
+            mood_changes = []
+            for log in practice_logs:
+                if log.mood_before and log.mood_after:
+                    mood_changes.append(f"{log.mood_before} → {log.mood_after}")
+
+            if mood_changes:
+                common_changes = Counter(mood_changes).most_common(2)
+                text += f"• Частые изменения: {', '.join([c[0] for c in common_changes])}\n"
+
+            # Раздел 3: Анализ от LLM (если достаточно данных)
+            if len(practice_logs) >= 1:
+                try:
+                    # Подготавливаем данные для LLM
+                    llm_context = await _prepare_llm_context(practice_logs, user)
+
+                    # Генерируем анализ
+                    analysis = await _generate_llm_analysis(llm_context)
+
+                    if analysis:
+                        text += f"\n*Анализ:*\n{analysis}\n"
+                except Exception as e:
+                    logger.error(f"Ошибка при генерации анализа LLM: {e}")
+                    text += "\n*Анализ:*\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
+            else:
+                text += "\n*Анализ:*\n(Выполните 5+ практик, чтобы получить анализ.)\n"
+
+            # Кнопки
             keyboard = InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton("🌬 Начать практику", callback_data="daily_practice")],
+                    [InlineKeyboardButton("🔄 Обновить анализ", callback_data="analytics")],
                     [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
                 ]
             )
@@ -59,108 +146,21 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=keyboard,
                 media_files=None,
             )
-            return
-
-        # Формируем дневник эмоций
-        text = "*🌀 Дневник состояний*\n\n"
-
-        # Раздел 1: Последние практики с эмоциями
-        text += "*Последние практики:*\n\n"
-        for log in practice_logs[:10]:  # Показываем последние 10
-            date_str = log.completed_at.strftime("%d.%m %H:%M") if log.completed_at else "Дата неизвестна"
-
-            practice_name = f"Практика #{log.practice_id}"
-            if log.practice and hasattr(log.practice, 'day_number'):
-                practice_name = f"День {log.practice.day_number}"
-
-            emotions_line = ""
-            if log.mood_before:
-                emotions_line += f"{log.mood_before} → "
-
-            emotions_line += f"{practice_name} ({date_str})"
-
-            if log.mood_after:
-                emotions_line += f" → {log.mood_after}"
-
-            text += f"• {emotions_line}\n"
-
-        text += "\n"
-        # Раздел 2: Статистика
-        text += "*Статистика:*\n"
-
-        total_practices = len(practice_logs)
-        text += f"• Всего практик: {total_practices}\n"
-
-        # Практики за последние 30 дней
-        thirty_days_ago = datetime.now(tz=UTC) - timedelta(days=30)
-        recent_practices = [log for log in practice_logs if log.completed_at and log.completed_at >= thirty_days_ago]
-        text += f"• За 30 дней: {len(recent_practices)}\n"
-
-        # Самые частые эмоции
-        all_moods = [log.mood_before for log in practice_logs if log.mood_before] + \
-                    [log.mood_after for log in practice_logs if log.mood_after]
-
-        if all_moods:
-            common_moods = Counter(all_moods).most_common(3)
-            text += f"• Частые состояния: {', '.join([m[0] for m in common_moods])}\n"
-
-        # Самые частые смены эмоций
-        mood_changes = []
-        for log in practice_logs:
-            if log.mood_before and log.mood_after:
-                mood_changes.append(f"{log.mood_before} → {log.mood_after}")
-
-        if mood_changes:
-            common_changes = Counter(mood_changes).most_common(2)
-            text += f"• Частые изменения: {', '.join([c[0] for c in common_changes])}\n"
-
-        # Раздел 3: Анализ от LLM (если достаточно данных)
-        if len(practice_logs) >= 1:
-            try:
-                # Подготавливаем данные для LLM
-                llm_context = await _prepare_llm_context(practice_logs, user)
-
-                # Генерируем анализ
-                analysis = await _generate_llm_analysis(llm_context)
-
-                if analysis:
-                    text += f"\n*Анализ:*\n{analysis}\n"
-            except Exception as e:
-                logger.error(f"Ошибка при генерации анализа LLM: {e}")
-                text += "\n*Анализ:*\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
-        else:
-            text += "\n*Анализ:*\n(Выполните 5+ практик, чтобы получить анализ.)\n"
-
-        # Кнопки
-        keyboard = InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("🔄 Обновить анализ", callback_data="analytics")],
-                [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
-            ]
-        )
-
-        await replace_menu_message(
-            chat_id=update.effective_chat.id,
-            context=context,
-            text=text,
-            reply_markup=keyboard,
-            media_files=None,
-        )
-    except Exception as e:
-        logger.error(f"Ошибка в show_analytics: {e}")
-        await replace_menu_message(
-            chat_id=update.effective_chat.id,
-            context=context,
-            text="*🌀 Дневник состояний*\n\nПроизошла ошибка при загрузке данных. Попробуйте позже.",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
-                ]
-            ),
-            media_files=None,
-        )
-    finally:
-        db.close()
+        except Exception as e:
+            logger.error(f"Ошибка в show_analytics: {e}")
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text="*🌀 Дневник состояний*\n\nПроизошла ошибка при загрузке данных. Попробуйте позже или нажмите /start заново.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
+                    ]
+                ),
+                media_files=None,
+            )
+        finally:
+            db.close()
 
 
 async def _prepare_llm_context(practice_logs: List[PracticeLog], user: User) -> Dict[str, Any]:

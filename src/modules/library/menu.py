@@ -19,7 +19,7 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Здесь собраны следы пути.  
 Слова, звуки и образы —  
-то, к чему можно возвращаться в разное состояние.
+то, к чему можно возвращаться в разных состояниях.
 
 Иногда достаточно строки.  
 Иногда — дыхания, музыки или тишины между ними.
@@ -37,13 +37,12 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🌌 В тишину", callback_data="menu")],
         ]
     )
-    db = SessionLocal()
-    try:
-        image: Image = db.query(Image).filter(Image.title == "Меню").first()
-        main_menu_image = image.image_id
-    finally:
-        db.close()
-
+    with SessionLocal() as db:
+        try:
+            image: Image = db.query(Image).filter(Image.title == "Меню").first()
+            main_menu_image = image.image_id
+        finally:
+            db.close()
 
     media = ""
     await replace_screen(

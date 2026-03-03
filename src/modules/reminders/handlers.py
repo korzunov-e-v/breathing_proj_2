@@ -10,17 +10,17 @@ async def skip_today_handler(update: Update, _context: ContextTypes.DEFAULT_TYPE
     await query.answer()
 
     user_id = update.effective_user.id
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            # Замораживаем напоминания на сегодня
-            user.freeze_reminders = True
-            db.commit()
+    with SessionLocal() as db:
+        try:
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                # Замораживаем напоминания на сегодня
+                user.freeze_reminders = True
+                db.commit()
 
-            await query.edit_message_text("✋ Хорошо, отменяю напоминания на сегодня. Удачи!")
-    finally:
-        db.close()
+                await query.edit_message_text("✋ Хорошо, отменяю напоминания на сегодня. Удачи!")
+        finally:
+            db.close()
 
 
 async def remind_later_handler(update: Update, _context: ContextTypes.DEFAULT_TYPE):
@@ -28,14 +28,14 @@ async def remind_later_handler(update: Update, _context: ContextTypes.DEFAULT_TY
     await query.answer()
 
     user_id = update.effective_user.id
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.tg_id == user_id).first()
-        if user:
-            # Увеличиваем счетчик напоминаний, чтобы перейти к следующему
-            user.reminder_count_today = min(user.reminder_count_today + 1, 4)
-            db.commit()
+    with SessionLocal() as db:
+        try:
+            user = db.query(User).filter(User.tg_id == user_id).first()
+            if user:
+                # Увеличиваем счетчик напоминаний, чтобы перейти к следующему
+                user.reminder_count_today = min(user.reminder_count_today + 1, 4)
+                db.commit()
 
-            await query.edit_message_text("⏰ Хорошо, напомню позже!")
-    finally:
-        db.close()
+                await query.edit_message_text("⏰ Хорошо, напомню позже!")
+        finally:
+            db.close()

@@ -54,20 +54,20 @@ async def continue_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE
         {"text": "⏳ Создал паузу", "goto": "retry_onboarding"},
     ]
 
-    db = SessionLocal()
-    try:
-        video = db.query(Video).filter(Video.id == 1).first()
-        video_file_id = video.video_id if video else ""
-    finally:
-        db.close()
+    with SessionLocal() as db:
+        try:
+            video = db.query(Video).filter(Video.id == 1).first()
+            video_file_id = video.video_id if video else ""
+        finally:
+            db.close()
 
-    await replace_menu_message(
-        chat_id=query.message.chat.id,
-        context=context,
-        text=text,
-        buttons=buttons,
-        media_files=[video_file_id],
-    )
+        await replace_menu_message(
+            chat_id=query.message.chat.id,
+            context=context,
+            text=text,
+            buttons=buttons,
+            media_files=[video_file_id],
+        )
 
 
 async def retry_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
