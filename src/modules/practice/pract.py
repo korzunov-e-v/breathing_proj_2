@@ -170,7 +170,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 # Добавляем благодарность за фидбек
                 if comment:
                     if ai_reply:
-                        completion_text += "\n\n🧘 *Ответ на ваш комментарий:*\n"
+                        completion_text += "\n\n🧘 Ответ на ваш комментарий:\n"
                         completion_text += ai_reply
                     else:
                         # фоллбек, если OpenRouter не отработал/не успел/упал
@@ -184,9 +184,9 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 if query:
-                    await query.edit_message_text(completion_text, parse_mode='Markdown', reply_markup=reply_markup)
+                    await query.edit_message_text(completion_text, parse_mode='HTML', reply_markup=reply_markup)
                 else:
-                    await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown', reply_markup=reply_markup)
+                    await context.bot.send_message(chat_id, completion_text, parse_mode='HTML', reply_markup=reply_markup)
 
                 # Показываем главное меню
                 # await show_main_menu(update, context)
