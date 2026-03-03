@@ -50,10 +50,11 @@ async def show_articles_by_category(update: Update, context: ContextTypes.DEFAUL
         buttons = []
         for article in articles:
             prefix = "$ " if article.premium else ""
+            display_title = "Премиум контент" if article.premium else article.title[:40]
             buttons.append(
                 [
                     InlineKeyboardButton(
-                        f"{prefix}{article.title[:40]}",
+                        f"{prefix}{display_title}",
                         callback_data=f"article_{article.id}"
                     )
                 ]

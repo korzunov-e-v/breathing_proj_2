@@ -156,7 +156,7 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await replace_menu_message(
                     chat_id=update.effective_chat.id,
                     context=context,
-                    text=f"*🎞 {video_title}*\n\n🔒 Это видео доступно только по подписке.",
+                    text=f"*🎞 Премиум контент*\n\n🔒 Это видео доступно только по подписке.",
                     reply_markup=InlineKeyboardMarkup(
                         [
                             [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],

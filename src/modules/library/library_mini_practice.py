@@ -51,7 +51,7 @@ async def show_mini_practices_content(update: Update, context: ContextTypes.DEFA
                 callback_data = f"minipractice_{practice.id}"
 
                 # Создаем описание для практики
-                practice_title = f"{practice.title}"
+                practice_title = "Премиум контент" if practice.premium else practice.title
                 description = f"{prefix}{practice_title}"
 
                 # Обрезаем если слишком длинное

@@ -63,7 +63,8 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
                 callback_data = f"music_{music.id}"
 
                 # Создаем описание для трека
-                description = f"{prefix}{music.title}"
+                music_title = "Премиум контент" if music.premium else music.title
+                description = f"{prefix}{music_title}"
                 buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
 
             buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_sounds")])
