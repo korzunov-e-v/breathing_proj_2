@@ -4,5 +4,5 @@ migrations:
 restart:
 	docker compose up -d --force-recreate
 
-logs:
+bot-log:
 	docker compose logs bot -f
