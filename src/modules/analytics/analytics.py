@@ -37,7 +37,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if not practice_logs:
                 text = """
-    *🌀 Дневник состояний*
+    🌀 Дневник состояний
     
     Ты пока не выполнил ни одной практики.
     
@@ -62,10 +62,10 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             # Формируем дневник эмоций
-            text = "*🌀 Дневник состояний*\n\n"
+            text = "🌀 Дневник состояний\n\n"
 
             # Раздел 1: Последние практики с эмоциями
-            text += "*Последние практики:*\n\n"
+            text += "Последние практики:\n\n"
             for log in practice_logs[:10]:  # Показываем последние 10
                 date_str = log.completed_at.strftime("%d.%m %H:%M") if log.completed_at else "Дата неизвестна"
 
@@ -86,7 +86,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             text += "\n"
             # Раздел 2: Статистика
-            text += "*Статистика:*\n"
+            text += "Статистика:\n"
 
             total_practices = len(practice_logs)
             text += f"• Всего практик: {total_practices}\n"
@@ -124,12 +124,12 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     analysis = await _generate_llm_analysis(llm_context)
 
                     if analysis:
-                        text += f"\n*Анализ:*\n{analysis}\n"
+                        text += f"\nАнализ:\n{analysis}\n"
                 except Exception as e:
                     logger.error(f"Ошибка при генерации анализа LLM: {e}")
-                    text += "\n*Анализ:*\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
+                    text += "\nАнализ:\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
             else:
-                text += "\n*Анализ:*\n(Выполните 5+ практик, чтобы получить анализ.)\n"
+                text += "\nАнализ:\n(Выполните 5+ практик, чтобы получить анализ.)\n"
 
             # Кнопки
             keyboard = InlineKeyboardMarkup(
@@ -145,13 +145,14 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=text,
                 reply_markup=keyboard,
                 media_files=None,
+                parse_mode="HTML",
             )
         except Exception as e:
             logger.error(f"Ошибка в show_analytics: {e}")
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text="*🌀 Дневник состояний*\n\nПроизошла ошибка при загрузке данных. Попробуйте позже или нажмите /start заново.",
+                text="🌀 Дневник состояний\n\nПроизошла ошибка при загрузке данных. Попробуйте позже или нажмите /start заново.",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
