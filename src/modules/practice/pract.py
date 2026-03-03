@@ -19,7 +19,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     user_data: UserContextData = context.user_data
-    
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.tg_id == user_id).first()
@@ -56,7 +56,6 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
                 user_data.practice_data.practice_message_ids.append(video_msg.message_id)
             except Exception as e:
                 logging.error(f"Ошибка отправки видео: {e}")
-
 
         # Сразу показываем меню завершения
         buttons = [
@@ -272,11 +271,19 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         # Проверяем доступ к премиум контенту
         elif practice.premium and not user.subscribed:
-            text = (f"🔒 *Премиум контент*\n\n"
-                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"
-                    )
+            text = f"""
+✨ Открыть полное пространство Кабира
+
+Базовые дыхания — это старт.  
+Полная версия — это:  
+• ежедневный ритм дыханий  
+• еще шесть голосовых практик от Кабира  
+• мягкая поддержка в паузах
+
+Здесь дыхание становится частью дня, а не редким событием.
+            """
             buttons = [
-                {"text": "💳 Оформить подписку", "goto": "subscription_offer"},
+                {"text": "💳 Открыть полное пространство", "goto": "subscription_offer"},
                 {"text": "🌌 В моё пространство", "goto": "menu"}
             ]
         else:
