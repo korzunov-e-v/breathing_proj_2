@@ -110,6 +110,7 @@ async def replace_screen(
     media=None,
     audio=None,
     video=None,
+    animation=None,
     parse_mode="Markdown",
 ):
     """
@@ -123,6 +124,7 @@ async def replace_screen(
         media: Фото/изображение (file_id или URL)
         audio: Аудио файл (file_id или URL)
         video: Видео файл (file_id или URL)
+        animation: Анимация/GIF (file_id или URL)
         parse_mode: Режим парсинга текста
     """
     from src.context import UserContextData
@@ -161,6 +163,15 @@ async def replace_screen(
         msg = await context.bot.send_video(
             chat_id=chat_id,
             video=video,
+            caption=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+        )
+    elif animation:
+        # Отправляем анимацию с подписью
+        msg = await context.bot.send_animation(
+            chat_id=chat_id,
+            animation=animation,
             caption=text,
             parse_mode=parse_mode,
             reply_markup=reply_markup,

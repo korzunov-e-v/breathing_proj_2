@@ -50,5 +50,5 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context=context,
         text=text,
         reply_markup=keyboard,
-        media=main_menu_image,
+        animation=main_menu_image,
     )
