@@ -273,12 +273,10 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Проверяем доступ к премиум контенту
         elif practice.premium and not user.subscribed:
             text = (f"🔒 *Премиум контент*\n\n"
-                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"  # TODO
-                    f"{practice.intro_text}\n"
+                    f"Практика дня {user.current_day} доступна только для подписчиков.\n"
                     )
             buttons = [
-                {"text": "💳 Выбрать подписку", "goto": "subscription_offer"},
-                {"text": "🔄 Повторить пройденные", "goto": "practice_again"},
+                {"text": "💳 Оформить подписку", "goto": "subscription_offer"},
                 {"text": "🌌 В моё пространство", "goto": "menu"}
             ]
         else:
