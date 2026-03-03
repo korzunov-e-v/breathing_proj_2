@@ -179,13 +179,17 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 # Очищаем временные данные
                 user_data.clear_practice_data()
 
+                # Создаем inline-клавиатуру с кнопкой "меню"
+                keyboard = [[InlineKeyboardButton("🌌 В моё пространство", callback_data="menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
                 if query:
-                    await query.edit_message_text(completion_text, parse_mode='Markdown')
+                    await query.edit_message_text(completion_text, parse_mode='Markdown', reply_markup=reply_markup)
                 else:
-                    await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown')
+                    await context.bot.send_message(chat_id, completion_text, parse_mode='Markdown', reply_markup=reply_markup)
 
                 # Показываем главное меню
-                await show_main_menu(update, context)
+                # await show_main_menu(update, context)
             else:
                 await message_func("Пользователь не найден")
         except Exception as e:

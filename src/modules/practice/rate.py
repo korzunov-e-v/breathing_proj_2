@@ -25,7 +25,7 @@ async def ask_feedback_comment(update: Update, context: ContextTypes.DEFAULT_TYP
     user_data.state = UserState.WAITING_COMMENT
 
     keyboard = [
-        [InlineKeyboardButton("🌌 В моё пространство", callback_data="skip_comment")]
+        [InlineKeyboardButton("🌌 Тишина", callback_data="skip_comment")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
