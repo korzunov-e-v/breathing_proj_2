@@ -110,7 +110,7 @@ class NotificationLogView(BaseSecureModelView):
 class PracticeLogView(BaseSecureModelView):
     column_list = ("id", "user", "practice", "completed_at", "feedback_rating")
     column_filters = ("completed_at", "feedback_rating")
-    form_columns = ("practice", "mood_before", "mood_after", "feedback_rating", "feedback_comment")
+    form_columns = ("practice", "mood_before", "mood_after", "completed_at", "feedback_rating", "feedback_comment")
 
 
 class PhraseView(BaseSecureModelView):
