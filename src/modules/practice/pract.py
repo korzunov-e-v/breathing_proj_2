@@ -272,7 +272,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Проверяем доступ к премиум контенту
         elif practice.premium and not user.subscribed:
             text = f"""
-✨ Открыть полное пространство Кабира
+*✨ Открыть полное пространство Кабира*
 
 Базовые дыхания — это старт.  
 Полная версия — это:  
