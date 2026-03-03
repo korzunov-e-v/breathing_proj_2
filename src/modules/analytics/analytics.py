@@ -48,7 +48,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton("🌬 Начать практику", callback_data="daily_practice")],
-                    [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+                    [InlineKeyboardButton("🔙 Назад", callback_data="menu")]
                 ]
             )
 
