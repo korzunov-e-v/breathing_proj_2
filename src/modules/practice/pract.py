@@ -163,6 +163,8 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
 Это остаётся здесь — без оценки, без спешки.
 
 Можно просто позволить этому быть.
+
+{practice.outro_text if practice.outro_text else ""}
                     """
 
                 # Добавляем благодарность за фидбек
