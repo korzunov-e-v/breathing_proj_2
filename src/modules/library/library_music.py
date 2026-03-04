@@ -23,7 +23,7 @@ async def show_music_content(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     with SessionLocal() as db:
         try:
-            categories = db.query(Music.category_1).distinct().all()
+            categories = db.query(Music.category_1).filter(Music.section == 'library').distinct().all()
 
             buttons = [
                 [InlineKeyboardButton(cat[0], callback_data=f"music_category_{cat[0]}")]
@@ -51,7 +51,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
     with SessionLocal() as db:
 
         try:
-            music_tracks = db.query(Music).filter(Music.category_1 == category).all()
+            music_tracks = db.query(Music).filter(Music.category_1 == category, Music.section == 'library').all()
             # Проверяем подписку пользователя
             user_id = update.effective_user.id
             is_subscribed = await _is_user_subscribed(user_id)
@@ -93,7 +93,7 @@ async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     with SessionLocal() as db:
         try:
-            music = db.query(Music).filter(Music.id == music_id).first()
+            music = db.query(Music).filter(Music.id == music_id, Music.section == 'library').first()
 
             # Проверяем подписку
             user_id = update.effective_user.id
