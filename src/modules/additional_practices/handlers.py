@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.db.database import SessionLocal
-from src.db.models import Video, Music, Texts  # проверь имена моделей
+from src.db.models import Video, Music, Texts, User  # проверь имена моделей
 from src.modules.menu_renderer import replace_menu_message
 
 SECTION = "additional_practices"
@@ -18,6 +18,10 @@ def _tok(i: int) -> str:
     # токен короткий и гарантированно влезает
     return str(i)
 
+async def _is_user_subscribed(user_id: int) -> bool:
+    with SessionLocal() as db:
+        user: User | None = db.query(User).filter(User.tg_id == user_id).first()
+        return bool(user and user.subscribed)
 
 async def show_additional_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """category_1"""
@@ -113,7 +117,9 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
 
 
 async def show_additional_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """контент по (cat1, cat2): видео -> аудио (по одному) -> текст через replace_menu_message"""
+    """контент по (cat1, cat2): видео -> аудио (по одному) -> текст через replace_menu_message.
+    Премиум не отдаём без подписки.
+    """
     data = update.callback_query.data  # "ap_cat2_<token2>"
     token2 = data.replace("ap_cat2_", "", 1)
 
@@ -126,6 +132,8 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
         return await show_additional_practices(update, context)
 
     chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    is_subscribed = await _is_user_subscribed(user_id)
 
     with SessionLocal() as db:
         videos = (
@@ -135,7 +143,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .all()
         )
         audios = (
-            db.query(Music)  # у тебя Music
+            db.query(Music)
             .filter(Music.section == SECTION, Music.category_1 == cat1, Music.category_2 == cat2)
             .order_by(Music.id)
             .all()
@@ -147,26 +155,59 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .all()
         )
 
-    # 1) Отправляем видео по одному
-    for v in videos:
+    # --- Премиум фильтрация ---
+    def _is_premium(obj) -> bool:
+        return bool(getattr(obj, "premium", False))
+
+    has_any_premium = any(_is_premium(x) for x in (videos + audios + texts))
+    has_any_free = any(not _is_premium(x) for x in (videos + audios + texts))
+
+    # Если всё найденное — премиум, а подписки нет -> блокируем сразу
+    if (videos or audios or texts) and (not is_subscribed) and (not has_any_free):
+        await replace_menu_message(
+            chat_id=chat_id,
+            context=context,
+            text="*🧘 Премиум контент*\n\n🔒 Эта практика доступна только по подписке.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
+                    [InlineKeyboardButton("🔙 Назад", callback_data="additional_practices")],
+                ]
+            ),
+            media_files=None,
+        )
+        return
+
+    # Иначе — отдаём только бесплатное (или всё, если подписка есть)
+    if not is_subscribed:
+        videos_to_send = [v for v in videos if not _is_premium(v)]
+        audios_to_send = [a for a in audios if not _is_premium(a)]
+        texts_to_show = [t for t in texts if not _is_premium(t)]
+    else:
+        videos_to_send = videos
+        audios_to_send = audios
+        texts_to_show = texts
+
+    # 1) Видео по одному
+    for v in videos_to_send:
         fid = getattr(v, "video_id", None)
         if not fid:
             continue
         caption = getattr(v, "title", None) or ""
-        # если хочешь — добавь description в caption
         await context.bot.send_video(
             chat_id=chat_id,
             video=fid,
             caption=caption[:1024] if caption else None,
         )
 
-    # 2) Отправляем аудио по одному
-    for a in audios:
+    # 2) Аудио по одному
+    for a in audios_to_send:
         fid = getattr(a, "audio_id", None) or getattr(a, "file_id", None)
         if not fid:
             continue
+
         title = getattr(a, "title", None) or None
-        performer = getattr(a, "artist", None) or None  # если есть
+        performer = getattr(a, "artist", None) or None
         caption = getattr(a, "description", None) or None
 
         await context.bot.send_audio(
@@ -177,39 +218,36 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             caption=(caption[:1024] if caption else None),
         )
 
-    # 3) Тексты собираем и показываем через replace_menu_message
+    # 3) Текст через replace_menu_message
     text_parts: list[str] = []
-    for t in texts:
-        title = getattr(t, "title", None)
-        body = (
-            getattr(t, "content", None)
-            or getattr(t, "body", None)
-            or getattr(t, "text", None)
-            or ""
-        ).strip()
-
-        if title and body:
-            text_parts.append(f"*{title}*\n{body}")
-        elif body:
+    for t in texts_to_show:
+        body = (t.text or "").strip()
+        if body:
             text_parts.append(body)
 
     header = f"🧘 {cat1}\n\n*{cat2}*"
     full_text = header + (("\n\n" + "\n\n— — —\n\n".join(text_parts)) if text_parts else "")
 
-    # Если вообще ничего нет — напишем явным текстом
-    if not videos and not audios and not text_parts:
-        full_text += "\n\nПока нет контента в этой подкатегории."
+    # Если ничего бесплатного не оказалось (но мы сюда можем попасть, если в БД пусто)
+    if not videos_to_send and not audios_to_send and not text_parts:
+        full_text += "\n\nПока нет доступного контента в этой подкатегории."
+        if has_any_premium and not is_subscribed:
+            full_text += "\n\n🔒 Часть материалов доступна по подписке."
+
+    # Если есть премиум и подписки нет — покажем подсказку
+    if has_any_premium and not is_subscribed:
+        full_text += "\n\n🔒 Часть материалов доступна по подписке."
 
     buttons = [
         [InlineKeyboardButton("🔙 Назад", callback_data="additional_practices")],
     ]
+    if has_any_premium and not is_subscribed:
+        buttons.insert(0, [InlineKeyboardButton("✨ Подписка", callback_data="subscription")])
 
     await replace_menu_message(
         chat_id=chat_id,
         context=context,
         text=full_text,
         reply_markup=InlineKeyboardMarkup(buttons),
-        media_files=None,  # важно: тут уже не шлем медиа пачкой
-        # если replace_menu_message поддерживает parse_mode — лучше прокинуть:
-        # parse_mode=ParseMode.MARKDOWN
+        media_files=None,
     )

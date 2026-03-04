@@ -312,6 +312,7 @@ class Texts(Base):
     category_1 = Column(String(500))
     category_2 = Column(String(500))
     section = Column(String(500))
+    premium = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"Text(id={self.id}')"
