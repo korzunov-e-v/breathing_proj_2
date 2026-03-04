@@ -25,9 +25,9 @@ async def show_video_content(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             # Важно: предполагается, что у Video есть поле category
             categories = (
-                db.query(Video.category)
+                db.query(Video.category_1)
                 .distinct()
-                .order_by(Video.category)
+                .order_by(Video.category_1)
                 .all()
             )
 
@@ -73,7 +73,7 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
         try:
             videos = (
                 db.query(Video)
-                .filter(Video.category == category)
+                .filter(Video.category_1 == category)
                 .order_by(Video.id)
                 .all()
             )
