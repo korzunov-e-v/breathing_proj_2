@@ -113,7 +113,7 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
 
 
 async def show_additional_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """контент по (cat1, cat2): видео+аудио+текст"""
+    """контент по (cat1, cat2): видео -> аудио (по одному) -> текст через replace_menu_message"""
     data = update.callback_query.data  # "ap_cat2_<token2>"
     token2 = data.replace("ap_cat2_", "", 1)
 
@@ -125,6 +125,8 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
     if not cat1 or not cat2:
         return await show_additional_practices(update, context)
 
+    chat_id = update.effective_chat.id
+
     with SessionLocal() as db:
         videos = (
             db.query(Video)
@@ -133,7 +135,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .all()
         )
         audios = (
-            db.query(Music)
+            db.query(Music)  # у тебя Music
             .filter(Music.section == SECTION, Music.category_1 == cat1, Music.category_2 == cat2)
             .order_by(Music.id)
             .all()
@@ -145,16 +147,37 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .all()
         )
 
-    media_files: list[str] = []
+    # 1) Отправляем видео по одному
     for v in videos:
         fid = getattr(v, "video_id", None)
-        if fid:
-            media_files.append(fid)
-    for a in audios:
-        fid = getattr(a, "audio_id", None)
-        if fid:
-            media_files.append(fid)
+        if not fid:
+            continue
+        caption = getattr(v, "title", None) or ""
+        # если хочешь — добавь description в caption
+        await context.bot.send_video(
+            chat_id=chat_id,
+            video=fid,
+            caption=caption[:1024] if caption else None,
+        )
 
+    # 2) Отправляем аудио по одному
+    for a in audios:
+        fid = getattr(a, "audio_id", None) or getattr(a, "file_id", None)
+        if not fid:
+            continue
+        title = getattr(a, "title", None) or None
+        performer = getattr(a, "artist", None) or None  # если есть
+        caption = getattr(a, "description", None) or None
+
+        await context.bot.send_audio(
+            chat_id=chat_id,
+            audio=fid,
+            title=title,
+            performer=performer,
+            caption=(caption[:1024] if caption else None),
+        )
+
+    # 3) Тексты собираем и показываем через replace_menu_message
     text_parts: list[str] = []
     for t in texts:
         title = getattr(t, "title", None)
@@ -164,6 +187,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             or getattr(t, "text", None)
             or ""
         ).strip()
+
         if title and body:
             text_parts.append(f"*{title}*\n{body}")
         elif body:
@@ -172,7 +196,8 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
     header = f"🧘 {cat1}\n\n*{cat2}*"
     full_text = header + (("\n\n" + "\n\n— — —\n\n".join(text_parts)) if text_parts else "")
 
-    if not media_files and not text_parts:
+    # Если вообще ничего нет — напишем явным текстом
+    if not videos and not audios and not text_parts:
         full_text += "\n\nПока нет контента в этой подкатегории."
 
     buttons = [
@@ -180,9 +205,11 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
     ]
 
     await replace_menu_message(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         context=context,
         text=full_text,
         reply_markup=InlineKeyboardMarkup(buttons),
-        media_files=media_files or None,
+        media_files=None,  # важно: тут уже не шлем медиа пачкой
+        # если replace_menu_message поддерживает parse_mode — лучше прокинуть:
+        # parse_mode=ParseMode.MARKDOWN
     )

@@ -83,6 +83,12 @@ class VideoView(BaseSecureModelView):
     form_columns = None
 
 
+class TextView(BaseSecureModelView):
+    column_list = None
+    column_filters = None
+    form_columns = None
+
+
 class FavoriteView(BaseSecureModelView):
     column_list = None
     column_filters = None
