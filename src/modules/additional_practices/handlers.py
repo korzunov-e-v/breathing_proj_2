@@ -37,7 +37,7 @@ async def show_additional_practices(update: Update, context: ContextTypes.DEFAUL
             chat_id=update.effective_chat.id,
             context=context,
             text="🧘 Доп. практики\n\nПока нет доступных категорий.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="library")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]),
             media_files=None,
         )
         return
@@ -50,7 +50,7 @@ async def show_additional_practices(update: Update, context: ContextTypes.DEFAUL
         [InlineKeyboardButton(name, callback_data=f"ap_cat1_{token}")]
         for token, name in cat1_map.items()
     ]
-    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
+    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="menu")])
 
     await replace_menu_message(
         chat_id=update.effective_chat.id,
