@@ -77,7 +77,7 @@ async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_T
     user_id = query.from_user.id
 
     keyboard = [
-        [InlineKeyboardButton("📋 В главное меню", callback_data="menu")]
+        [InlineKeyboardButton("📋 В моё пространство", callback_data="menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 

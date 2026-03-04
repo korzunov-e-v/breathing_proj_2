@@ -272,7 +272,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 buttons = [
                     {"text": "🔄 Пройти снова", "goto": "practice_again"},
                     {"text": "📚 Библиотека", "goto": "library"},
-                    {"text": "⬅️ Главное меню", "goto": "menu"}
+                    {"text": "⬅️ В моё пространство", "goto": "menu"}
                 ]
 
             # Проверяем доступ к премиум контенту
