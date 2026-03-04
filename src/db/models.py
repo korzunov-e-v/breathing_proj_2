@@ -242,7 +242,9 @@ class Music(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(500))
     audio_id = Column(String(255))
-    category = Column(String(255))
+    category_1 = Column(String(500))
+    category_2 = Column(String(500))
+    section = Column(String(500))
 
     premium = Column(Boolean, default=False)
 
@@ -274,7 +276,9 @@ class Video(Base):
 
     id = Column(Integer, primary_key=True)
     title = Column(String(500))
-    category = Column(String(500))
+    category_1 = Column(String(500))
+    category_2 = Column(String(500))
+    section = Column(String(500))
     video_id = Column(String(255))
     premium = Column(Boolean, default=False)
 
