@@ -31,28 +31,27 @@ class CKTextAreaField(TextAreaField):
 
 # admin/views.py
 class MoodView(BaseSecureModelView):
-    column_list = ("id", "name", "description", "icon")
-    column_searchable_list = ("name",)
-    form_columns = ("name", "description", "icon")
+    column_list = None
+    column_filters = None
+    form_columns = None
 
 
 class PracticeView(BaseSecureModelView):
-    column_list = ("id", "day_number", "premium", "audio_file_id", "video_file_id")
-    column_filters = ("day_number", "premium")
-    form_columns = ("day_number", "audio_file_id", "video_file_id", "intro_text", "outro_text", "premium")
+    column_list = None
+    column_filters = None
+    form_columns = None
 
 
 class UserView(BaseSecureModelView):
     column_list = None
-    column_searchable_list = ("tg_id", "username")
-    column_filters = ("subscribed", "timezone", "current_day", "streak")
+    column_filters = None
     form_columns = None
-    form_excluded_columns = ['created_at']
 
 
 class EmotionView(BaseSecureModelView):
-    column_list = ("id", "user", "emotion_name", "created_at")
-    column_filters = ("emotion_name", "created_at")
+    column_list = None
+    column_filters = None
+    form_columns = None
 
     column_formatters = {
         'user': lambda v, c, m, p: f"{m.user.username} (ID: {m.user.tg_id})" if m.user else None,
@@ -61,33 +60,33 @@ class EmotionView(BaseSecureModelView):
 
 
 class ArticleView(BaseSecureModelView):
-    column_list = ("id", "title", "category", "premium")
-    column_searchable_list = ("title",)
-    column_filters = ("category", "premium")
+    column_list = None
+    column_filters = None
     form_columns = None
 
 
 class MusicView(BaseSecureModelView):
-    column_list = ("id", "title", "audio_id", "category", "premium")
-    column_filters = ("category", "premium")
+    column_list = None
+    column_filters = None
     form_columns = None
 
 
 class MiniPracticeView(BaseSecureModelView):
-    column_list = ("id", "title", "audio_id", "premium")
-    column_filters = ("premium",)
+    column_list = None
+    column_filters = None
     form_columns = None
 
 
 class VideoView(BaseSecureModelView):
-    column_list = ("id", "title", "category", "video_id", "premium")
-    column_filters = ("premium",)
+    column_list = None
+    column_filters = None
     form_columns = None
 
 
 class FavoriteView(BaseSecureModelView):
-    column_list = ("id", "user", "item_type", "item_id")
-    column_filters = ("item_type",)
+    column_list = None
+    column_filters = None
+    form_columns = None
 
     column_formatters = {
         'user': lambda v, c, m, p: f"{m.user.username} (ID: {m.user.tg_id})" if m.user else None
