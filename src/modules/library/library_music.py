@@ -1,4 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 from src.db.database import SessionLocal
 from src.db.models import Music, User
@@ -116,18 +117,10 @@ async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     media=None,
                 )
             else:
-                # Доступный трек - отправляем аудио через replace_screen
-                text = f"*🎶 {music.category}*\n\nНаслаждайтесь звуком..."
-                buttons = [
-                    [InlineKeyboardButton("🔙 Назад к трекам", callback_data=f"music_category_{music.category}")]
-                ]
-
-                await replace_screen(
+                # Доступный трек - отправляем аудио напрямую
+                await context.bot.send_audio(
                     chat_id=update.effective_chat.id,
-                    context=context,
-                    text=text,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                    audio=music.audio_id,
+                    audio=music.audio_id
                 )
 
         finally:
