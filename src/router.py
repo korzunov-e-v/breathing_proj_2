@@ -4,6 +4,11 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.additional_practices.handlers import (
+    show_additional_practices,
+    show_additional_practice_content,
+    show_additional_practices_subcategories
+)
 from src.modules.analytics.analytics import show_analytics
 from src.modules.library.library_mini_practice import show_mini_practice, show_mini_practices_content
 from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
@@ -43,6 +48,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "library_videos": show_video_content,
     "library_practices": show_mini_practices_content,
     "analytics": show_analytics,
+    "additional_practices": show_additional_practices,
 
     # онбординг
     "send_onboarding": send_onboarding,
@@ -84,6 +90,8 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("video_category_", show_video_by_category),
     ("video_", show_video),
     ("minipractice_", show_mini_practice),
+    ("ap_cat2:", show_additional_practice_content),
+    ("ap_cat1:", show_additional_practices_subcategories),
 ]
 
 

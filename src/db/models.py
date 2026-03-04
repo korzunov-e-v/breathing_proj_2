@@ -304,6 +304,22 @@ class Image(Base):
         return f"{self.image_id[:20]}..."
 
 
+class Texts(Base):
+    __tablename__ = "texts"
+
+    id = Column(Integer, primary_key=True)
+    text = Column(String(500))
+    category_1 = Column(String(500))
+    category_2 = Column(String(500))
+    section = Column(String(500))
+
+    def __repr__(self):
+        return f"Text(id={self.id}')"
+
+    def __str__(self):
+        return f"{self.text[:20]}..."
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
 
