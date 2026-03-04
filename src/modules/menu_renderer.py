@@ -203,6 +203,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🌀 Дневник состояний", callback_data="analytics")],
             [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
             [InlineKeyboardButton("🔥 Практики", callback_data="additional_practices")],
+            [InlineKeyboardButton("📝 Обратная связь", callback_data="feedback")],
             [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if _get_user_current_day(
                 update.effective_user.id
             ) >= 3 else [],

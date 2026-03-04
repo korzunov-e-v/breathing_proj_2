@@ -13,6 +13,7 @@ class UserState(str, Enum):
     WAITING_MOOD_BEFORE = "waiting_mood_before"
     WAITING_MOOD_AFTER = "waiting_mood_after"
     WAITING_COMMENT = "waiting_comment"
+    FEEDBACK = "FEEDBACK"
 
 
 class PracticeData(BaseModel):

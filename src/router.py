@@ -10,6 +10,7 @@ from src.modules.additional_practices.handlers import (
     show_additional_practices_subcategories
 )
 from src.modules.analytics.analytics import show_analytics
+from src.modules.feedback.handlers import show_feedback
 from src.modules.library.library_mini_practice import show_mini_practice, show_mini_practices_content
 from src.modules.library.library_music import show_music_content, show_music_by_category, play_music
 from src.modules.library.library_notes import show_library_content, show_articles_by_category, show_article
@@ -69,6 +70,7 @@ EXACT_ROUTES: dict[str, Handler] = {
 
     # фидбек
     "skip_comment": handle_comment_skip,
+    "feedback": show_feedback,
 
     # напоминания/уведомления
     "remind_later": remind_later_handler,
