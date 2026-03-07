@@ -32,7 +32,7 @@ async def show_additional_practices(update: Update, context: ContextTypes.DEFAUL
         )
         categories = result.scalars().all()
 
-    cat1_values = [r[0] for r in categories if r and r[0]]
+    cat1_values = [r for r in categories]
 
     if not cat1_values:
         await replace_menu_message(
@@ -86,7 +86,7 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
         )
         cat2_rows = result.scalars().all()
 
-    cat2_values = [r[0] for r in cat2_rows if r and r[0]]
+    cat2_values = [r for r in cat2_rows]
 
     if not cat2_values:
         await replace_menu_message(

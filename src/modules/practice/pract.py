@@ -357,27 +357,26 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = update.effective_user.id
     async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(
-                select(User).where(User.tg_id == user_id)
-            )
-            user = result.scalars().first()
-            if not user:
-                await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
-                return
+        result = await db.execute(
+            select(User).where(User.tg_id == user_id)
+        )
+        user = result.scalars().first()
+        if not user:
+            await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
+            return
 
-            # Получаем ID всех пройденных пользователем практик
-            result = await db.execute(
-                select(PracticeLog.practice_id)
-                .where(PracticeLog.user_id == user.id)
-                .distinct()
-            )
-            completed_practices = result.scalars().all()
-            completed_ids = [p[0] for p in completed_practices]
+        # Получаем ID всех пройденных пользователем практик
+        result = await db.execute(
+            select(PracticeLog.practice_id)
+            .where(PracticeLog.user_id == user.id)
+            .distinct()
+        )
+        completed_practices = result.scalars().all()
+        completed_ids = [p[0] for p in completed_practices]
 
-            if not completed_ids:
-                # Если нет пройденных практик
-                text = """
+        if not completed_ids:
+            # Если нет пройденных практик
+            text = """
 🔄 Возвращение к дыханию
 
 Иногда полезно пройти путь ещё раз.  
@@ -387,29 +386,29 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
 Выбери то, к чему хочется вернуться сейчас.
 
 У вас пока нет пройденных дней для повторения.
-    """
-                buttons = [
-                    {"text": "🧘 Первый вдох", "goto": "daily_practice"},
-                    {"text": "🌌 В моё пространство", "goto": "menu"}
-                ]
-                await replace_menu_message(
-                    chat_id=chat_id,
-                    context=context,
-                    text=text,
-                    buttons=buttons,
-                    media_files=[],
-                )
-                return
-
-            # Получаем только пройденные практики
-            result = await db.execute(
-                select(Practice)
-                .where(Practice.id.in_(completed_ids))
-                .order_by(Practice.day_number)
+"""
+            buttons = [
+                {"text": "🧘 Первый вдох", "goto": "daily_practice"},
+                {"text": "🌌 В моё пространство", "goto": "menu"}
+            ]
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text=text,
+                buttons=buttons,
+                media_files=[],
             )
-            practices = result.scalars().all()
+            return
 
-            text = """
+        # Получаем только пройденные практики
+        result = await db.execute(
+            select(Practice)
+            .where(Practice.id.in_(completed_ids))
+            .order_by(Practice.day_number)
+        )
+        practices = result.scalars().all()
+
+        text = """
 🔄 Возвращение к дыханию
 
 Иногда полезно пройти путь ещё раз.  
@@ -417,56 +416,48 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
 а чтобы услышать его глубже.
 
 Выбери то, к чему хочется вернуться сейчас.
-    """
+"""
 
-            # Создаем клавиатуру только с пройденными практиками
-            keyboard = []
-            for practice in practices:
-                button_text = f"✅ Вдох {practice.day_number}"
-                if practice.premium and not await is_user_subscribed(user_id):
-                    button_text += " 🔒"
+        # Создаем клавиатуру только с пройденными практиками
+        keyboard = []
+        for practice in practices:
+            button_text = f"✅ Вдох {practice.day_number}"
+            if practice.premium and not await is_user_subscribed(user_id):
+                button_text += " 🔒"
 
-                keyboard.append(
-                    [InlineKeyboardButton(
-                        button_text,
-                        callback_data=f"repeat_practice_{practice.id}"
-                    )]
-                )
-
-            # Добавляем кнопки возврата
             keyboard.append(
-                [
-                    InlineKeyboardButton("🌌 В моё пространство", callback_data="menu"),
-                ]
+                [InlineKeyboardButton(
+                    button_text,
+                    callback_data=f"repeat_practice_{practice.id}"
+                )]
             )
 
-            reply_markup = InlineKeyboardMarkup(keyboard)
+        # Добавляем кнопки возврата
+        keyboard.append(
+            [
+                InlineKeyboardButton("🌌 В моё пространство", callback_data="menu"),
+            ]
+        )
 
-            if query:
-                await replace_menu_message(
-                    chat_id=chat_id,
-                    context=context,
-                    text=text,
-                    buttons=[],  # можно пустой
-                    reply_markup=reply_markup,
-                    media_files=[],
-                )
-            else:
-                await replace_menu_message(
-                    chat_id=chat_id,
-                    context=context,
-                    text=text,
-                    reply_markup=reply_markup,
-                    media_files=[],
-                )
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-        except Exception as e:
-            logging.error(f"Ошибка в show_practice_again: {e}")
-            error_text = "Произошла ошибка при загрузке практик."
-            if query:
-                await query.edit_message_text(error_text)
-            else:
-                await context.bot.send_message(chat_id, error_text)
+        if query:
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text=text,
+                buttons=[],  # можно пустой
+                reply_markup=reply_markup,
+                media_files=[],
+            )
+        else:
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text=text,
+                reply_markup=reply_markup,
+                media_files=[],
+            )
 
 
 async def handle_repeat_practice_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from pytz import UTC
+from sqlalchemy.orm import selectinload
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from sqlalchemy import desc, select
@@ -33,6 +34,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             practice_logs_result = await db.execute(
                 select(PracticeLog)
+                .options(selectinload(PracticeLog.practice))
                 .where(PracticeLog.user_id == user.id)
                 .order_by(desc(PracticeLog.completed_at))
                 .limit(50)
@@ -164,8 +166,6 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 media_files=None,
             )
-        finally:
-            db.close()
 
 
 async def _prepare_llm_context(practice_logs: List[PracticeLog], user: User) -> Dict[str, Any]:

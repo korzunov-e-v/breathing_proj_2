@@ -59,7 +59,7 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
     category = query.data.replace("video_category_", "", 1)
 
-    with AsyncSessionLocal() as db1:
+    async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Video)
             .where(
