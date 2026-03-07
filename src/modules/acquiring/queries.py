@@ -11,7 +11,7 @@ from src.db.models import (
     PaymentStatus,
     Product,
     ProductType,
-    UserEntitlement,
+    UserEntitlement, ProductItemType,
 )
 
 
@@ -131,3 +131,15 @@ def map_product_type_to_entitlement_type(product_type: ProductType) -> Entitleme
         ProductType.text: EntitlementType.text_access,
     }
     return mapping[product_type]
+
+
+def map_product_item_type_to_entitlement_type(item_type: ProductItemType) -> EntitlementType:
+    mapping = {
+        ProductItemType.article: EntitlementType.article_access,
+        ProductItemType.music: EntitlementType.music_access,
+        ProductItemType.video: EntitlementType.video_access,
+        ProductItemType.mini_practice: EntitlementType.mini_practice_access,
+        ProductItemType.image: EntitlementType.image_access,
+        ProductItemType.text: EntitlementType.text_access,
+    }
+    return mapping[item_type]

@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.db.database import AsyncSessionLocal
 from src.db.models import Video, Music, TextItem
+from src.modules.acquiring.access import AccessService
 from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
 
@@ -118,10 +119,7 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
 
 
 async def show_additional_practice_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """контент по (cat1, cat2): видео -> аудио (по одному) -> текст через replace_menu_message.
-    Премиум не отдаём без подписки.
-    """
-    data = update.callback_query.data  # "ap_cat2_<token2>"
+    data = update.callback_query.data
     token2 = data.replace("ap_cat2_", "", 1)
 
     ap_cat2_state: dict = context.chat_data.get(UD_AP_CAT2, {})
@@ -134,15 +132,23 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    is_subscribed = await is_user_subscribed(user_id)
 
     async with AsyncSessionLocal() as db:
+        access_service = AccessService(db)
+
+        has_full_access = await access_service.has_additional_practice_access(
+            user_id=user_id,
+            section=SECTION,
+            category_1=cat1,
+            category_2=cat2,
+        )
+
         videos_result = await db.execute(
             select(Video)
             .where(
                 Video.section == SECTION,
                 Video.category_1 == cat1,
-                Video.category_2 == cat2
+                Video.category_2 == cat2,
             )
             .order_by(Video.id)
         )
@@ -153,7 +159,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .where(
                 Music.section == SECTION,
                 Music.category_1 == cat1,
-                Music.category_2 == cat2
+                Music.category_2 == cat2,
             )
             .order_by(Music.id)
         )
@@ -164,28 +170,27 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             .where(
                 TextItem.section == SECTION,
                 TextItem.category_1 == cat1,
-                TextItem.category_2 == cat2
+                TextItem.category_2 == cat2,
             )
             .order_by(TextItem.id)
         )
         texts = texts_result.scalars().all()
 
-    # --- Премиум фильтрация ---
     def _is_premium(obj) -> bool:
         return bool(getattr(obj, "premium", False))
 
     has_any_premium = any(_is_premium(x) for x in (videos + audios + texts))
     has_any_free = any(not _is_premium(x) for x in (videos + audios + texts))
 
-    # Если всё найденное — премиум, а подписки нет -> блокируем сразу
-    if (videos or audios or texts) and (not is_subscribed) and (not has_any_free):
+    # Всё премиум и доступа нет — блокируем
+    if (videos or audios or texts) and (not has_full_access) and (not has_any_free):
         await replace_menu_message(
             chat_id=chat_id,
             context=context,
-            text="*🧘 Премиум контент*\n\n🔒 Эта практика доступна только по подписке.",
+            text="*🧘 Премиум контент*\n\n🔒 Эта практика доступна только после покупки.",
             reply_markup=InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
+                    [InlineKeyboardButton("✨ Купить практику", callback_data=f"buy_ap_{token2}")],
                     [InlineKeyboardButton("🔙 Назад", callback_data="additional_practices")],
                 ]
             ),
@@ -193,8 +198,8 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
         )
         return
 
-    # Иначе — отдаём только бесплатное (или всё, если подписка есть)
-    if not is_subscribed:
+    # Нет полного доступа — показываем только бесплатное
+    if not has_full_access:
         videos_to_send = [v for v in videos if not _is_premium(v)]
         audios_to_send = [a for a in audios if not _is_premium(a)]
         texts_to_show = [t for t in texts if not _is_premium(t)]
@@ -203,7 +208,6 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
         audios_to_send = audios
         texts_to_show = texts
 
-    # 1) Видео по одному
     for v in videos_to_send:
         fid = getattr(v, "video_id", None)
         if not fid:
@@ -215,7 +219,6 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             caption=caption[:1024] if caption else None,
         )
 
-    # 2) Аудио по одному
     for a in audios_to_send:
         fid = getattr(a, "audio_id", None) or getattr(a, "file_id", None)
         if not fid:
@@ -233,7 +236,6 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
             caption=(caption[:1024] if caption else None),
         )
 
-    # 3) Текст через replace_menu_message
     text_parts: list[str] = []
     for t in texts_to_show:
         body = (t.text or "").strip()
@@ -243,21 +245,19 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
     header = f"🧘 {cat1}\n\n*{cat2}*"
     full_text = header + (("\n\n" + "\n\n— — —\n\n".join(text_parts)) if text_parts else "")
 
-    # Если ничего бесплатного не оказалось (но мы сюда можем попасть, если в БД пусто)
     if not videos_to_send and not audios_to_send and not text_parts:
         full_text += "\n\nПока нет доступного контента в этой подкатегории."
-        if has_any_premium and not is_subscribed:
-            full_text += "\n\n🔒 Часть материалов доступна по подписке."
+        if has_any_premium and not has_full_access:
+            full_text += "\n\n🔒 Часть материалов доступна после покупки."
 
-    # Если есть премиум и подписки нет — покажем подсказку
-    if has_any_premium and not is_subscribed:
-        full_text += "\n\n🔒 Часть материалов доступна по подписке."
+    if has_any_premium and not has_full_access:
+        full_text += "\n\n🔒 Часть материалов доступна после покупки."
 
     buttons = [
         [InlineKeyboardButton("🔙 Назад", callback_data="additional_practices")],
     ]
-    if has_any_premium and not is_subscribed:
-        buttons.insert(0, [InlineKeyboardButton("✨ Подписка", callback_data="subscription")])
+    if has_any_premium and not has_full_access:
+        buttons.insert(0, [InlineKeyboardButton("✨ Купить практику", callback_data=f"buy_ap_{token2}")])
 
     await replace_menu_message(
         chat_id=chat_id,

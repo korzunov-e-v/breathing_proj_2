@@ -15,15 +15,15 @@ from src.db.models import (
     Product,
     ProductType,
     User,
-    UserEntitlement,
+    UserEntitlement, EntitlementType, ProductItem,
 )
+from src.modules.acquiring import queries
 from src.modules.acquiring.access import AccessService
 from src.modules.acquiring.payment_gateway import (
     build_receipt_item,
     create_yookassa_payment,
     get_yookassa_payment,
 )
-from src.modules.acquiring import queries
 
 
 class AcquiringError(Exception):
@@ -131,9 +131,10 @@ class AcquiringService:
 
     async def grant_entitlement_once(self, *, order: Order) -> UserEntitlement | None:
         product = order.product
-        entitlement_type = queries.map_product_type_to_entitlement_type(product.product_type)
 
         if product.product_type == ProductType.premium_lifetime:
+            entitlement_type = EntitlementType.premium_lifetime
+
             existing = await queries.get_active_entitlement(
                 self.session,
                 user_id=order.user_id,
@@ -152,6 +153,17 @@ class AcquiringService:
             self.session.add(entitlement)
             await self.session.flush()
             return entitlement
+
+        if product.product_type == ProductType.bundle:
+            for item in product.items:
+                await self._grant_entitlement_for_product_item(
+                    order=order,
+                    product=product,
+                    item=item,
+                )
+            return None
+
+        entitlement_type = queries.map_product_type_to_entitlement_type(product.product_type)
 
         filters = {
             "article_id": product.article_id,
@@ -183,6 +195,51 @@ class AcquiringService:
             mini_practice_id=product.mini_practice_id,
             image_id=product.image_id,
             text_id=product.text_id,
+            is_active=True,
+        )
+        self.session.add(entitlement)
+        await self.session.flush()
+        return entitlement
+
+    async def _grant_entitlement_for_product_item(
+        self,
+        *,
+        order: Order,
+        product: Product,
+        item: ProductItem,
+    ) -> UserEntitlement | None:
+        entitlement_type = queries.map_product_item_type_to_entitlement_type(item.item_type)
+
+        filters = {
+            "article_id": item.article_id,
+            "music_id": item.music_id,
+            "video_id": item.video_id,
+            "mini_practice_id": item.mini_practice_id,
+            "image_id": item.image_id,
+            "text_id": item.text_id,
+        }
+        not_none_filters = {k: v for k, v in filters.items() if v is not None}
+
+        existing = await queries.get_active_entitlement(
+            self.session,
+            user_id=order.user_id,
+            entitlement_type=entitlement_type,
+            **not_none_filters,
+        )
+        if existing:
+            return existing
+
+        entitlement = UserEntitlement(
+            user_id=order.user_id,
+            entitlement_type=entitlement_type,
+            product_id=product.id,
+            order_id=order.id,
+            article_id=item.article_id,
+            music_id=item.music_id,
+            video_id=item.video_id,
+            mini_practice_id=item.mini_practice_id,
+            image_id=item.image_id,
+            text_id=item.text_id,
             is_active=True,
         )
         self.session.add(entitlement)

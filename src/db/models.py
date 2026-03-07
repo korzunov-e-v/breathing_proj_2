@@ -265,6 +265,7 @@ class ProductType(enum.Enum):
     image = "image"
     text = "text"
     bundle = "bundle"
+    additional_practice = "additional_practice"
 
 
 class ProductItemType(enum.Enum):
@@ -319,6 +320,10 @@ class Product(Base):
 
     is_active = Column(Boolean, default=True, nullable=False)
     is_repeatable = Column(Boolean, default=False, nullable=False)  # можно ли покупать повторно
+
+    section = Column(String(100), nullable=True)
+    category_1 = Column(String(500), nullable=True)
+    category_2 = Column(String(500), nullable=True)
 
     # ссылка на конкретный контент
     article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
@@ -449,6 +454,7 @@ class EntitlementType(enum.Enum):
     mini_practice_access = "mini_practice_access"
     image_access = "image_access"
     text_access = "text_access"
+    additional_practice_access = "additional_practice_access"
 
 
 class UserEntitlement(Base):
@@ -468,6 +474,10 @@ class UserEntitlement(Base):
     mini_practice_id = Column(Integer, ForeignKey("mini_practices.id"), nullable=True)
     image_id = Column(Integer, ForeignKey("images.id"), nullable=True)
     text_id = Column(Integer, ForeignKey("texts.id"), nullable=True)
+
+    section = Column(String(100), nullable=True)
+    category_1 = Column(String(500), nullable=True)
+    category_2 = Column(String(500), nullable=True)
 
     granted_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models import EntitlementType, Product, ProductType
+from src.db.models import EntitlementType, Product, ProductType, UserEntitlement
 from src.modules.acquiring import queries
 
 
@@ -114,3 +115,25 @@ class AccessService:
             return not await self.has_text_access(user_id, product.text_id)
 
         return False
+
+    async def has_additional_practice_access(
+        self,
+        *,
+        user_id: int,
+        section: str,
+        category_1: str,
+        category_2: str,
+    ) -> bool:
+        if await self.has_premium(user_id):
+            return True
+
+        stmt = select(UserEntitlement.id).where(
+            UserEntitlement.user_id == user_id,
+            UserEntitlement.entitlement_type == EntitlementType.additional_practice_access,
+            UserEntitlement.section == section,
+            UserEntitlement.category_1 == category_1,
+            UserEntitlement.category_2 == category_2,
+            UserEntitlement.is_active.is_(True),
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
