@@ -31,7 +31,7 @@ async def replace_menu_message(
     buttons=None,
     reply_markup=None,
     media_files: list | None = None,
-    parse_mode: str = "Markdown",
+    parse_mode: str = "HTML",
 ):
     """Удаляет предыдущее меню (если было) и отправляет новое. Сохраняет message_id."""
     user_data: UserContextData = context.user_data
