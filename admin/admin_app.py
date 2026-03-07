@@ -17,7 +17,13 @@ from src.db.models import (
     PracticeLog,
     User,
     Video,
-    MiniPractice, Image, TextItem,
+    MiniPractice,
+    Image,
+    TextItem,
+    Product,
+    Order,
+    Payment,
+    UserEntitlement,
 )
 
 
@@ -50,5 +56,9 @@ def create_admin_app():
     admin.add_view(DefaultView(MiniPractice, session, category="Content"))
     admin.add_view(DefaultView(Image, session, category="Content"))
     admin.add_view(DefaultView(TextItem, session, category="Content"))
+    admin.add_view(DefaultView(Product, session, category="Acquiring"))
+    admin.add_view(DefaultView(Order, session, category="Acquiring"))
+    admin.add_view(DefaultView(Payment, session, category="Acquiring"))
+    admin.add_view(DefaultView(UserEntitlement, session, category="Acquiring"))
 
     return app
