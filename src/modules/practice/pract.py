@@ -1,14 +1,15 @@
 import logging
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import Practice, PracticeLog, User
 from src.log import log_interaction
-from src.modules.menu_renderer import replace_menu_message, show_main_menu
+from src.modules.library.tools import is_user_subscribed
+from src.modules.menu_renderer import replace_menu_message
 from src.modules.practice.tools import get_moods_keyboard
 
 
@@ -20,20 +21,31 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = update.effective_chat.id
     user_data: UserContextData = context.user_data
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            user_result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = user_result.scalars().first()
+
             if not user:
                 await context.bot.send_message(chat_id, "Пользователь не найден")
                 return
 
-            # Определяем, какую практику показывать
             if user_data.practice_data.selected_practice_id:
-                # Если есть выбранная практика (из повторных или библиотеки), используем ее
-                practice: Practice = db.query(Practice).filter(Practice.id == user_data.practice_data.selected_practice_id).first()
+                practice_result = await db.execute(
+                    select(Practice).where(
+                        Practice.id == user_data.practice_data.selected_practice_id
+                    )
+                )
+                practice: Practice | None = practice_result.scalars().first()
             else:
-                # Иначе показываем практику текущего дня
-                practice: Practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+                practice_result = await db.execute(
+                    select(Practice).where(
+                        Practice.day_number == user.current_day
+                    )
+                )
+                practice: Practice | None = practice_result.scalars().first()
 
             # Если есть аудио - отправляем его
             if practice.audio_file_id:
@@ -79,8 +91,6 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception as e:
             logging.error(f"Ошибка в show_practice_content: {e}")
             await context.bot.send_message(chat_id, "Произошла ошибка при загрузке практики")
-        finally:
-            db.close()
 
 
 async def handle_practice_completion(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,22 +120,30 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         query = None
         message_func = lambda text, **kwargs: context.bot.send_message(chat_id, text, **kwargs)
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
             if user:
-                # Определяем ID практики
                 if user_data.practice_data.is_repeat:
                     practice_id = user_data.practice_data.selected_practice_id
-                    practice = db.query(Practice).filter(Practice.id == practice_id).first()
+
+                    result = await db.execute(
+                        select(Practice).where(Practice.id == practice_id)
+                    )
+                    practice = result.scalars().first()
                     practice_type = "repeat"
+
                 else:
-                    practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+                    result = await db.execute(
+                        select(Practice).where(Practice.day_number == user.current_day)
+                    )
+                    practice = result.scalars().first()
                     practice_id = practice.id if practice else None
-                    practice = db.query(Practice).filter(Practice.day_number == practice_id).first()
                     practice_type = "daily"
 
-                # Создаем запись в логе практик
                 practice_log = PracticeLog(
                     user_id=user.id,
                     practice_id=practice_id,
@@ -134,8 +152,9 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                     mood_after=str(user_data.practice_data.mood_after),
                     feedback_rating=0,
                     feedback_comment=user_data.practice_data.feedback_comment,
-                    practice_type=practice_type  # Сохраняем тип практики
+                    practice_type=practice_type
                 )
+
                 db.add(practice_log)
 
                 # Обновляем прогресс пользователя, только если это НЕ повтор
@@ -146,12 +165,11 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 user.total_practice_minutes += 5
                 user.last_practice_at = func.now()
 
-                # Сбрасываем счетчик напоминаний только для daily практики
                 if not user_data.practice_data.is_repeat:
                     user.reminder_count_today = 0
                     user.freeze_reminders = False
 
-                db.commit()
+                await db.commit()
 
                 # Формируем текст завершения
                 completion_text = "Спасибо."
@@ -195,8 +213,6 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
         except Exception as e:
             logging.error(f"Ошибка в handle_practice_completion: {e}")
             await message_func("Произошла ошибка при завершении практики")
-        finally:
-            db.close()
 
 
 async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -211,24 +227,32 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
         chat_id = update.effective_chat.id
 
     user_id = update.effective_user.id
-    with SessionLocal() as db:
-
+    async with AsyncSessionLocal() as db:
         try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
             if not user:
                 await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
                 return
 
             # Проверяем, выполнял ли пользователь практику СЕГОДНЯ
             today = func.date(func.now())
-            today_practice = db.query(PracticeLog).filter(
-                PracticeLog.user_id == user.id,
-                func.date(PracticeLog.completed_at) == today
-            ).first()
+            result = await db.execute(
+                select(PracticeLog).where(
+                    PracticeLog.user_id == user.id,
+                    func.date(PracticeLog.completed_at) == today
+                )
+            )
+            today_practice = result.scalars().first()
 
             if today_practice:
                 # Пользователь уже выполнил практику сегодня
-                practice = db.query(Practice).filter(Practice.id == today_practice.practice_id).first()
+                result = await db.execute(
+                    select(Practice).where(Practice.id == today_practice.practice_id)
+                )
+                practice = result.scalars().first()
                 text = f"""
 🌿 Сегодня ты уже был с дыханием
 
@@ -260,7 +284,10 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 return
 
             # Находим практику для ТЕКУЩЕГО дня пользователя
-            practice = db.query(Practice).filter(Practice.day_number == user.current_day).first()
+            result = await db.execute(
+                select(Practice).where(Practice.day_number == user.current_day)
+            )
+            practice = result.scalars().first()
 
             if not practice:
                 # Если практики нет - пользователь прошел все
@@ -276,7 +303,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 ]
 
             # Проверяем доступ к премиум контенту
-            elif practice.premium and not user.subscribed:
+            elif practice.premium and not await is_user_subscribed(user_id):
                 text = f"""
 *✨ Открыть полное пространство Кабира*
 
@@ -315,8 +342,6 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.edit_message_text(error_text)
             else:
                 await context.bot.send_message(chat_id, error_text)
-        finally:
-            db.close()
 
 
 async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -331,18 +356,23 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
         chat_id = update.effective_chat.id
 
     user_id = update.effective_user.id
-    with SessionLocal() as db:
-
+    async with AsyncSessionLocal() as db:
         try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
             if not user:
                 await context.bot.send_message(chat_id, "Пользователь не найден. Начните с /start")
                 return
 
             # Получаем ID всех пройденных пользователем практик
-            completed_practices = db.query(PracticeLog.practice_id).filter(
-                PracticeLog.user_id == user.id
-            ).distinct().all()
+            result = await db.execute(
+                select(PracticeLog.practice_id)
+                .where(PracticeLog.user_id == user.id)
+                .distinct()
+            )
+            completed_practices = result.scalars().all()
             completed_ids = [p[0] for p in completed_practices]
 
             if not completed_ids:
@@ -372,9 +402,12 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
                 return
 
             # Получаем только пройденные практики
-            practices = db.query(Practice).filter(
-                Practice.id.in_(completed_ids)
-            ).order_by(Practice.day_number).all()
+            result = await db.execute(
+                select(Practice)
+                .where(Practice.id.in_(completed_ids))
+                .order_by(Practice.day_number)
+            )
+            practices = result.scalars().all()
 
             text = """
 🔄 Возвращение к дыханию
@@ -390,7 +423,7 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
             keyboard = []
             for practice in practices:
                 button_text = f"✅ Вдох {practice.day_number}"
-                if practice.premium and not user.subscribed:
+                if practice.premium and not await is_user_subscribed(user_id):
                     button_text += " 🔒"
 
                 keyboard.append(
@@ -434,8 +467,6 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.edit_message_text(error_text)
             else:
                 await context.bot.send_message(chat_id, error_text)
-        finally:
-            db.close()
 
 
 async def handle_repeat_practice_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -447,18 +478,24 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
     practice_id = query.data.replace("repeat_practice_", "")
     await log_interaction(update, "REPEAT_PRACTICE_SELECTED", f"PracticeID: {practice_id}")
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
-            practice = db.query(Practice).filter(Practice.id == practice_id).first()
+            result = await db.execute(
+                select(Practice).where(Practice.id == practice_id)
+            )
+            practice = result.scalars().first()
             if not practice:
                 await query.edit_message_text("Практика не найдена")
                 return
 
             user_id = update.effective_user.id
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
 
             # Проверяем доступ к премиум контенту
-            if practice.premium and not user.subscribed:
+            if practice.premium and not await is_user_subscribed(user_id):
                 await query.edit_message_text(
                     f"🔒 *Премиум контент*\n\nПрактика дня {practice.day_number} доступна только для подписчиков.",
                     parse_mode='Markdown'
@@ -480,8 +517,6 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
         except Exception as e:
             logging.error(f"Ошибка в handle_repeat_practice_selection: {e}")
             await query.edit_message_text("Произошла ошибка при загрузке практики")
-        finally:
-            db.close()
 
 
 async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -492,10 +527,13 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
     await log_interaction(update, "PRACTICES_RESTARTED")
 
     user_id = query.from_user.id
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
 
         try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
             if user:
                 user.current_day = 1
                 user.streak = 0

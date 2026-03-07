@@ -1,8 +1,9 @@
+from sqlalchemy import select
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import Image
 from src.modules.menu_renderer import cleanup_practice_messages, replace_screen
 
@@ -37,12 +38,12 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🌌 В тишину", callback_data="menu")],
         ]
     )
-    with SessionLocal() as db:
-        try:
-            image: Image = db.query(Image).filter(Image.title == "Меню").first()
-            main_menu_image = image.image_id
-        finally:
-            db.close()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Image).where(Image.title == "Меню")
+        )
+        image: Image | None = result.scalars().first()
+        main_menu_image = image.image_id
 
     media = ""
     await replace_screen(

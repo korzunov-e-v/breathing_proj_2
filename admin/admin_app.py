@@ -4,39 +4,20 @@ from flask import Flask
 from flask_admin import Admin
 
 from admin.views import (
-    AchievementView,
-    ArticleView,
-    EmotionView,
-    FavoriteView,
-    MoodView,
-    MusicView,
-    NotificationLogView,
-    PhraseView,
-    PracticeLogView,
-    PracticeView,
-    SubscriptionView,
-    UserAchievementView,
-    UserView,
-    VideoView,
-    MiniPracticeView, ImageView, TextView,
+    NotificationLogView, DefaultView,
 )
-from src.db.database import SessionLocal
+from src.db.database import SyncSessionLocal
 from src.db.models import (
-    Achievement,
     Article,
-    Emotion,
-    Favorite,
     Mood,
     Music,
     NotificationLog,
     Phrase,
     Practice,
     PracticeLog,
-    Subscription,
     User,
-    UserAchievement,
     Video,
-    MiniPractice, Image, Texts,
+    MiniPractice, Image, TextItem,
 )
 
 
@@ -54,25 +35,20 @@ def create_admin_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     admin = Admin(app, name='Breathing Bot Admin')
-    session = SessionLocal()
+    session = SyncSessionLocal()
 
     # Существующие View
-    admin.add_view(UserView(User, session, category="Users"))
-    admin.add_view(MoodView(Mood, session, category="Content"))
-    admin.add_view(PracticeView(Practice, session, category="Content"))
-    admin.add_view(ArticleView(Article, session, category="Content"))
-    admin.add_view(MusicView(Music, session, category="Content"))
-    admin.add_view(EmotionView(Emotion, session, category="Users"))
-    admin.add_view(FavoriteView(Favorite, session, category="Users"))
+    admin.add_view(DefaultView(User, session, category="Users"))
+    admin.add_view(DefaultView(Mood, session, category="Content"))
+    admin.add_view(DefaultView(Practice, session, category="Content"))
+    admin.add_view(DefaultView(Article, session, category="Content"))
+    admin.add_view(DefaultView(Music, session, category="Content"))
     admin.add_view(NotificationLogView(NotificationLog, session, category="System"))
-    admin.add_view(PracticeLogView(PracticeLog, session, category="Analytics"))
-    admin.add_view(PhraseView(Phrase, session, category="Content"))
-    admin.add_view(AchievementView(Achievement, session, category="System"))
-    admin.add_view(UserAchievementView(UserAchievement, session, category="Analytics"))
-    admin.add_view(SubscriptionView(Subscription, session, category="Users"))
-    admin.add_view(VideoView(Video, session, category="Content"))
-    admin.add_view(MiniPracticeView(MiniPractice, session, category="Content"))
-    admin.add_view(ImageView(Image, session, category="Content"))
-    admin.add_view(TextView(Texts, session, category="Content"))
+    admin.add_view(DefaultView(PracticeLog, session, category="Analytics"))
+    admin.add_view(DefaultView(Phrase, session, category="Content"))
+    admin.add_view(DefaultView(Video, session, category="Content"))
+    admin.add_view(DefaultView(MiniPractice, session, category="Content"))
+    admin.add_view(DefaultView(Image, session, category="Content"))
+    admin.add_view(DefaultView(TextItem, session, category="Content"))
 
     return app

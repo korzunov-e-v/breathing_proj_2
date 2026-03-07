@@ -1,17 +1,11 @@
+from sqlalchemy import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from src.db.database import SessionLocal
-from src.db.models import Article, User
+from src.db.database import AsyncSessionLocal
+from src.db.models import Article
+from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_screen
-
-
-async def _is_user_subscribed(user_id):
-    with SessionLocal() as db:
-        user: User = db.query(User).filter(User.tg_id == user_id).first()
-        if user and user.subscribed:
-            return True
-        return False
 
 
 async def show_library_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -20,12 +14,15 @@ async def show_library_content(update: Update, context: ContextTypes.DEFAULT_TYP
     if query:
         await query.answer()
 
-    with SessionLocal() as db:
-        categories = db.query(Article.category).distinct().all()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Article.category).distinct()
+        )
+        categories = result.scalars().all()
 
         buttons = [
-            [InlineKeyboardButton(cat[0], callback_data=f"article_category_{cat[0]}")]
-            for cat in categories if cat[0]
+            [InlineKeyboardButton(cat, callback_data=f"article_category_{cat}")]
+            for cat in categories if cat
         ]
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
 
@@ -44,8 +41,11 @@ async def show_articles_by_category(update: Update, context: ContextTypes.DEFAUL
     await query.answer()
 
     category = query.data.replace("article_category_", "")
-    with SessionLocal() as db:
-        articles = db.query(Article).filter(Article.category == category).all()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Article).where(Article.category == category)
+        )
+        articles = result.scalars().all()
 
         buttons = []
         for article in articles:
@@ -77,13 +77,16 @@ async def show_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     article_id = int(query.data.replace("article_", ""))
-    with SessionLocal() as db:
-        article = db.query(Article).filter(Article.id == article_id).first()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Article).where(Article.id == article_id)
+        )
+        article = result.scalars().first()
 
         if article:
             # Проверяем подписку для премиум статей
             user_id = update.effective_user.id
-            is_subscribed = await _is_user_subscribed(user_id)
+            is_subscribed = await is_user_subscribed(user_id)
 
             if article.premium and not is_subscribed:
                 text = f"*{article.title}*\n\n🔒 Эта статья доступна только по подписке."
@@ -108,5 +111,3 @@ async def show_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=markup,
                 media=None,
             )
-
-        db.close()

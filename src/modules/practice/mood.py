@@ -1,10 +1,11 @@
 import logging
 
+from sqlalchemy import select
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import Mood
 from src.log import log_interaction
 from src.modules.practice.pract import show_practice_content
@@ -18,12 +19,15 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     user_data: UserContextData = context.user_data
 
-    mood_id = query.data.replace("mood_", "")
+    mood_id = int(query.data.replace("mood_", ""))
     await log_interaction(update, "MOOD_SELECTED", f"MoodID: {mood_id}")
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
-            mood = db.query(Mood).filter(Mood.id == mood_id).first()
+            result = await db.execute(
+                select(Mood).where(Mood.id == mood_id)
+            )
+            mood = result.scalars().first()
             if not mood:
                 await query.edit_message_text("Ошибка: настроение не найдено")
                 return
@@ -51,8 +55,6 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception as e:
             logging.error(f"Ошибка в handle_mood_selection: {e}")
             await query.edit_message_text("Произошла ошибка при сохранении настроения")
-        finally:
-            db.close()
 
 
 async def ask_mood_after_practice(update: Update, _context: ContextTypes.DEFAULT_TYPE):

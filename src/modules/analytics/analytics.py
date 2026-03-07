@@ -4,11 +4,11 @@ from typing import List, Dict, Any
 from pytz import UTC
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from sqlalchemy import desc
+from sqlalchemy import desc, select
 from collections import Counter
 
-from src.db.database import SessionLocal
-from src.db.models import PracticeLog, User, Practice
+from src.db.database import AsyncSessionLocal
+from src.db.models import PracticeLog, User
 from src.modules.menu_renderer import replace_menu_message
 from src.modules.llm.openrouter_client import chat_with_context, OpenRouterError
 import logging
@@ -24,16 +24,20 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
-            # Получаем пользователя
-            user = db.query(User).filter(User.tg_id == user_id).first()
-            # Получаем практики пользователя
-            practice_logs = db.query(PracticeLog).filter(
-                PracticeLog.user_id == user.id
-            ).order_by(
-                desc(PracticeLog.completed_at)
-            ).limit(50).all()
+            user_result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = user_result.scalars().first()
+
+            practice_logs_result = await db.execute(
+                select(PracticeLog)
+                .where(PracticeLog.user_id == user.id)
+                .order_by(desc(PracticeLog.completed_at))
+                .limit(50)
+            )
+            practice_logs = practice_logs_result.scalars().all()
 
             if not practice_logs:
                 text = """

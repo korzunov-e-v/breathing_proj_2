@@ -1,10 +1,9 @@
-import asyncio
-
+from sqlalchemy import select
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData, UserState
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import Video
 from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message
@@ -54,12 +53,12 @@ async def continue_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE
         {"text": "⏳ Создал паузу", "goto": "retry_onboarding"},
     ]
 
-    with SessionLocal() as db:
-        try:
-            video = db.query(Video).filter(Video.id == 1).first()
-            video_file_id = video.video_id if video else ""
-        finally:
-            db.close()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Video).where(Video.id == 1)
+        )
+        video = result.scalars().first()
+        video_file_id = video.video_id if video else ""
 
         await replace_menu_message(
             chat_id=query.message.chat.id,

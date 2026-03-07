@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from sqlalchemy import select
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,7 +13,7 @@ from telegram.ext import (
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData, context_types
-from src.db.database import create_tables, SessionLocal
+from src.db.database import create_tables, AsyncSessionLocal
 from src.db.models import User
 from src.log import log_interaction, setup_logging
 from src.modules.feedback.handlers import handle_feedback_message
@@ -28,7 +29,6 @@ from src.telegram_utils import receive_media
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /start с логированием"""
     await log_interaction(update, "START_COMMAND")
 
     user = update.effective_user
@@ -37,10 +37,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserContextData = context.user_data
     user_data.clear_practice_data()
 
-    # Сохраняем/обновляем пользователя в БД
-    db = SessionLocal()
-    try:
-        db_user = db.query(User).filter(User.tg_id == user.id).first()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(User).where(User.tg_id == user.id)
+        )
+        db_user: User | None = result.scalars().first()
+
         if not db_user:
             db_user = User(
                 tg_id=user.id,
@@ -49,17 +51,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 streak=0
             )
             db.add(db_user)
-            db.commit()
+            await db.commit()
+
             logging.info(f"Создан новый пользователь: {user.username} (ID: {user.id})")
 
-            # Онбординг для нового пользователя
             await send_onboarding(update, context)
         else:
             logging.info(f"Пользователь уже существует: {user.username}")
-            # Показываем главное меню из YAML для существующего пользователя
             await show_main_menu(update, context)
-    finally:
-        db.close()
 
 
 def main():

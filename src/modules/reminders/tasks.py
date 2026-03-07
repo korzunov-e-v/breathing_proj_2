@@ -3,10 +3,11 @@ import logging
 from datetime import datetime, timedelta
 
 import pytz
-from sqlalchemy import func
+from sqlalchemy import func, select
 
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import User, NotificationLog, NotificationType, Phrase
+from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
 
 
@@ -40,80 +41,81 @@ class TaskScheduler:
 
                 self.logger.debug(f"Проверка ежедневных уведомлений: {current_time}")
 
-                with SessionLocal() as db:
-                    try:
-                        # Шаг 1: Находим пользователей, у которых время практики сейчас
-                        potential_users = db.query(User).filter(User.practice_time.isnot(None)).all()
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        select(User).where(User.practice_time.isnot(None))
+                    )
+                    potential_users = result.scalars().all()
 
-                        self.logger.info(f"Всего пользователей с настроенным временем: {len(potential_users)}")
+                    self.logger.info(f"Всего пользователей с настроенным временем: {len(potential_users)}")
 
-                        users_to_notify = []
-                        skip_reasons = {
-                            'wrong_time': 0,
-                            'already_notified_today': 0,
-                            'no_practice_time': 0,
-                            'paused': 0
-                        }
+                    users_to_notify = []
+                    skip_reasons = {
+                        'wrong_time': 0,
+                        'already_notified_today': 0,
+                        'no_practice_time': 0,
+                        'paused': 0
+                    }
 
-                        for user in potential_users:
-                            # Проверяем причину пропуска
-                            if user.freeze_reminders:
-                                skip_reasons['paused'] += 1
-                                continue
+                    for user in potential_users:
+                        # Проверяем причину пропуска
+                        if user.freeze_reminders:
+                            skip_reasons['paused'] += 1
+                            continue
 
-                            if not user.practice_time:
-                                skip_reasons['no_practice_time'] += 1
-                                continue
+                        if not user.practice_time:
+                            skip_reasons['no_practice_time'] += 1
+                            continue
 
-                            # Проверяем, подходит ли время (±1 минута)
-                            user_local_time = user.practice_time  # в базе данных как "11:00"
-                            user_gmt_offset = user.timezone  # в базе данных как "5", то есть +5 GMT Yekaterinburg
-                            local_time = datetime.strptime(user_local_time, "%H:%M")
-                            user_utc_time = (local_time - timedelta(hours=int(user_gmt_offset))).time().strftime("%H:%M")
+                        # Проверяем, подходит ли время (±1 минута)
+                        user_local_time = user.practice_time  # в базе данных как "11:00"
+                        user_gmt_offset = user.timezone  # в базе данных как "5", то есть +5 GMT Yekaterinburg
+                        local_time = datetime.strptime(user_local_time, "%H:%M")
+                        user_utc_time = (local_time - timedelta(hours=int(user_gmt_offset))).time().strftime("%H:%M")
 
-                            if not (user_utc_time == current_time or
-                                    user_utc_time == (now - timedelta(minutes=1)).strftime("%H:%M") or
-                                    user_utc_time == (now + timedelta(minutes=1)).strftime("%H:%M")):
-                                skip_reasons['wrong_time'] += 1
-                                continue
+                        if not (user_utc_time == current_time or
+                                user_utc_time == (now - timedelta(minutes=1)).strftime("%H:%M") or
+                                user_utc_time == (now + timedelta(minutes=1)).strftime("%H:%M")):
+                            skip_reasons['wrong_time'] += 1
+                            continue
 
-                            # Проверяем, не отправили ли уже уведомление сегодня
-                            last_notification = db.query(NotificationLog).filter(
+                        # Проверяем, не отправили ли уже уведомление сегодня
+                        result = await db.execute(
+                            select(NotificationLog).where(
                                 NotificationLog.user_id == user.id,
                                 NotificationLog.type == NotificationType.daily,
                                 func.date(NotificationLog.sent_at) == today
-                            ).first()
-
-                            if last_notification:
-                                skip_reasons['already_notified_today'] += 1
-                                continue
-
-                            users_to_notify.append(user)
-
-                        # Логируем статистику
-                        self.logger.info(
-                            f"Статистика уведомлений ({current_time}): "
-                            f"Всего пользователей: {len(potential_users)}, "
-                            f"К уведомлению: {len(users_to_notify)}, "
-                            f"Пропущено: {sum(skip_reasons.values())} "
-                            f"(приостановлены: {skip_reasons['paused']}, "
-                            f"нет времени: {skip_reasons['no_practice_time']}, "
-                            f"не время: {skip_reasons['wrong_time']}, "
-                            f"уже уведомлены: {skip_reasons['already_notified_today']})"
-                        )
-
-                        # Отправляем уведомления
-                        for user in users_to_notify:
-                            self.logger.info(
-                                f"Отправка ежедневного уведомления пользователю {user.tg_id} (время: {user.practice_time})"
                             )
-                            await self._send_daily_notification(user)
+                        )
+                        last_notification = result.scalars().first()
 
-                        if users_to_notify:
-                            self.logger.info(f"Отправлено {len(users_to_notify)} ежедневных уведомлений")
+                        if last_notification:
+                            skip_reasons['already_notified_today'] += 1
+                            continue
 
-                    finally:
-                        db.close()
+                        users_to_notify.append(user)
+
+                    # Логируем статистику
+                    self.logger.info(
+                        f"Статистика уведомлений ({current_time}): "
+                        f"Всего пользователей: {len(potential_users)}, "
+                        f"К уведомлению: {len(users_to_notify)}, "
+                        f"Пропущено: {sum(skip_reasons.values())} "
+                        f"(приостановлены: {skip_reasons['paused']}, "
+                        f"нет времени: {skip_reasons['no_practice_time']}, "
+                        f"не время: {skip_reasons['wrong_time']}, "
+                        f"уже уведомлены: {skip_reasons['already_notified_today']})"
+                    )
+
+                    # Отправляем уведомления
+                    for user in users_to_notify:
+                        self.logger.info(
+                            f"Отправка ежедневного уведомления пользователю {user.tg_id} (время: {user.practice_time})"
+                        )
+                        await self._send_daily_notification(user)
+
+                    if users_to_notify:
+                        self.logger.info(f"Отправлено {len(users_to_notify)} ежедневных уведомлений")
                 await asyncio.sleep(60)  # Проверяем каждую минуту
             except Exception as e:
                 self.logger.error(f"Ошибка в daily_scheduler: {e}")
@@ -129,22 +131,23 @@ class TaskScheduler:
                 day_text = f"Продолжаем практику #{user.current_day}"
 
             # Случайная фраза дня
-            with SessionLocal() as db:
-                try:
-                    phrases = db.query(Phrase).order_by(func.random())
-                    premium_phrases = None
-                    if user.subscribed:
-                        premium_phrases = phrases.filter(
-                            Phrase.for_premium == (user.subscribed if hasattr(user, 'subscribed') else False)
-                        ).all()
-                    if premium_phrases:
-                        phrase = premium_phrases.first()
-                    else:
-                        phrase = phrases.first()
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Phrase).order_by(func.random())
+                )
+                phrases = result.scalars().all()
 
-                    phrase_text = f"\n\n💭 *Фраза дня:*\n{phrase.text}" if phrase else ""
-                finally:
-                    db.close()
+                phrase = None
+                if await is_user_subscribed(user.tg_id):
+                    premium_phrases = [p for p in phrases if p.for_premium]
+                    if premium_phrases:
+                        phrase = premium_phrases[0]
+
+                if not phrase and phrases:
+                    phrase = phrases[0]
+
+                phrase_text = f"\n\n💭 *Фраза дня:*\n{phrase.text}" if phrase else ""
+
 
             text = f"""
 🧘Твой момент наступил!
@@ -172,22 +175,19 @@ class TaskScheduler:
             )
 
             # Логируем отправку
-            with SessionLocal() as db:
-                try:
-                    log = NotificationLog(
-                        user_id=user.id,
-                        type=NotificationType.daily,
-                        sent_at=datetime.now()
-                    )
-                    db.add(log)
-                    db.commit()
+            async with AsyncSessionLocal() as db:
+                log = NotificationLog(
+                    user_id=user.id,
+                    type=NotificationType.daily,
+                    sent_at=datetime.now()
+                )
 
-                    # Обновляем время последнего уведомления
-                    user.last_daily_notification_at = datetime.now()
-                    db.commit()
+                db.add(log)
+                await db.commit()
 
-                finally:
-                    db.close()
+                # Обновляем время последнего уведомления
+                user.last_daily_notification_at = datetime.now()
+                await db.commit()
 
         except Exception as e:
             self.logger.error(f"Ошибка отправки daily_notification: {e}")

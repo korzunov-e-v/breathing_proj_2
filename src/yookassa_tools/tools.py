@@ -5,8 +5,8 @@ using the Yookassa payment gateway API. It handles payment request
 building, receipt creation, and payment confirmation.
 
 Example:
-    >>> from src.yookassa_tools.tools import create_yookassa_order
-    >>> response = create_yookassa_order(
+    >>> from src.yookassa_tools.tools import create_yookassa_payment
+    >>> response = create_yookassa_payment(
     ...     receipt_items=[...],
     ...     user_phone="+79991234567",
     ...     user_email="user@example.com",
@@ -28,7 +28,7 @@ from src.settings import settings
 Configuration.configure(settings.yookassa_api_key, settings.yookassa_api_secret)
 
 
-def create_yookassa_order(
+def create_yookassa_payment(
     receipt_items: list[ReceiptItem],
     user_phone: str,
     user_email: str,

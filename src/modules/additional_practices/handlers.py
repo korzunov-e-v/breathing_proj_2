@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from sqlalchemy import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from src.db.database import SessionLocal
-from src.db.models import Video, Music, Texts, User  # проверь имена моделей
+from src.db.database import AsyncSessionLocal
+from src.db.models import Video, Music, TextItem
+from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
 
 SECTION = "additional_practices"
@@ -18,21 +20,17 @@ def _tok(i: int) -> str:
     # токен короткий и гарантированно влезает
     return str(i)
 
-async def _is_user_subscribed(user_id: int) -> bool:
-    with SessionLocal() as db:
-        user: User | None = db.query(User).filter(User.tg_id == user_id).first()
-        return bool(user and user.subscribed)
 
 async def show_additional_practices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """category_1"""
-    with SessionLocal() as db:
-        categories = (
-            db.query(Video.category_1)
-            .filter(Video.section == SECTION)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Video.category_1)
+            .where(Video.section == SECTION)
             .distinct()
             .order_by(Video.category_1)
-            .all()
         )
+        categories = result.scalars().all()
 
     cat1_values = [r[0] for r in categories if r and r[0]]
 
@@ -76,14 +74,17 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
         # если маппинг потерялся (перезапуск/другая сессия) — вернемся на начало
         return await show_additional_practices(update, context)
 
-    with SessionLocal() as db:
-        cat2_rows = (
-            db.query(Video.category_2)
-            .filter(Video.section == SECTION, Video.category_1 == cat1)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Video.category_2)
+            .where(
+                Video.section == SECTION,
+                Video.category_1 == cat1
+            )
             .distinct()
             .order_by(Video.category_2)
-            .all()
         )
+        cat2_rows = result.scalars().all()
 
     cat2_values = [r[0] for r in cat2_rows if r and r[0]]
 
@@ -133,27 +134,41 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    is_subscribed = await _is_user_subscribed(user_id)
+    is_subscribed = await is_user_subscribed(user_id)
 
-    with SessionLocal() as db:
-        videos = (
-            db.query(Video)
-            .filter(Video.section == SECTION, Video.category_1 == cat1, Video.category_2 == cat2)
+    async with AsyncSessionLocal() as db:
+        videos_result = await db.execute(
+            select(Video)
+            .where(
+                Video.section == SECTION,
+                Video.category_1 == cat1,
+                Video.category_2 == cat2
+            )
             .order_by(Video.id)
-            .all()
         )
-        audios = (
-            db.query(Music)
-            .filter(Music.section == SECTION, Music.category_1 == cat1, Music.category_2 == cat2)
+        videos = videos_result.scalars().all()
+
+        audios_result = await db.execute(
+            select(Music)
+            .where(
+                Music.section == SECTION,
+                Music.category_1 == cat1,
+                Music.category_2 == cat2
+            )
             .order_by(Music.id)
-            .all()
         )
-        texts = (
-            db.query(Texts)
-            .filter(Texts.section == SECTION, Texts.category_1 == cat1, Texts.category_2 == cat2)
-            .order_by(Texts.id)
-            .all()
+        audios = audios_result.scalars().all()
+
+        texts_result = await db.execute(
+            select(TextItem)
+            .where(
+                TextItem.section == SECTION,
+                TextItem.category_1 == cat1,
+                TextItem.category_2 == cat2
+            )
+            .order_by(TextItem.id)
         )
+        texts = texts_result.scalars().all()
 
     # --- Премиум фильтрация ---
     def _is_premium(obj) -> bool:

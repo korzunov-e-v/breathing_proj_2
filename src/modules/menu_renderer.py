@@ -1,11 +1,12 @@
 import logging
 
+from sqlalchemy import select
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from src.context import UserContextData, UserState
-from src.db.database import SessionLocal
+from src.context import UserContextData
+from src.db.database import AsyncSessionLocal
 from src.db.models import User, Image
 from src.telegram_utils import _detect_type
 
@@ -204,19 +205,19 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
             [InlineKeyboardButton("🔥 Практики", callback_data="additional_practices")],
             [InlineKeyboardButton("📝 Обратная связь", callback_data="feedback")],
-            [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if _get_user_current_day(
+            [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if await _get_user_current_day(
                 update.effective_user.id
             ) >= 3 else [],
             [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
         ]
     )
 
-    db = SessionLocal()
-    try:
-        image: Image = db.query(Image).filter(Image.title == "Меню").first()
-        main_menu_image = image.image_id
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Image).where(Image.title == "Меню")
+        )
+        image: Image | None = result.scalars().first()
+        main_menu_image = image.image_id if image else None
 
 
     await replace_screen(
@@ -237,12 +238,13 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-def _get_user_current_day(user_id: int):
-    db = SessionLocal()
-    try:
-        user: User = db.query(User).filter(User.tg_id == user_id).first()
+async def _get_user_current_day(user_id: int):
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(User).where(User.tg_id == user_id)
+        )
+        user: User | None = result.scalars().first()
+
         if user:
             return user.current_day
         return 1
-    finally:
-        db.close()

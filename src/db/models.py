@@ -31,7 +31,7 @@ class Mood(Base):
     icon = Column(String(255))
 
     def __repr__(self):
-        return f"Mood(id={self.id}, name='{self.name}')"
+        return f"Mood(id={self.id}, name='{self.name})"
 
     def __str__(self):
         return self.name
@@ -63,15 +63,14 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Отношения
-    emotions = relationship("Emotion", back_populates="user")
-    favorites = relationship("Favorite", back_populates="user")
     logs = relationship("NotificationLog", back_populates="user")
     practice_logs = relationship("PracticeLog", back_populates="user")
-    achievements = relationship("UserAchievement", back_populates="user")
-    subscriptions = relationship("Subscription", back_populates="user")
+
+    orders = relationship("Order", back_populates="user")
+    entitlements = relationship("UserEntitlement", back_populates="user")
 
     def __repr__(self):
-        return f"User(id={self.id}, tg_id={self.tg_id}, username='{self.username}')"
+        return f"User(id={self.id}, tg_id={self.tg_id}, username='{self.username})"
 
     def __str__(self):
         return f"{self.username} (ID: {self.tg_id})" if self.username else f"User {self.tg_id}"
@@ -130,30 +129,10 @@ class Phrase(Base):
     for_premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Phrase(id={self.id}, category='{self.category}')"
+        return f"Phrase(id={self.id}, category='{self.category})"
 
     def __str__(self):
         return f"{self.text[:50]}..." if len(self.text) > 50 else self.text
-
-
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    plan_type = Column(String(50))
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True))
-    is_active = Column(Boolean, default=True)
-
-    user = relationship("User", back_populates="subscriptions")
-
-    def __repr__(self):
-        return f"Subscription(user_id={self.user_id}, plan='{self.plan_type}')"
-
-    def __str__(self):
-        status = "active" if self.is_active else "inactive"
-        return f"{self.plan_type} ({status})"
 
 
 class Article(Base):
@@ -167,7 +146,7 @@ class Article(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Article(id={self.id}, title='{self.title}')"
+        return f"Article(id={self.id}, title='{self.title})"
 
     def __str__(self):
         return self.title
@@ -186,10 +165,10 @@ class Music(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Music(id={self.id}, category='{self.category}')"
+        return f"Music(id={self.id}, title='{self.title})"
 
     def __str__(self):
-        return f"{self.category} - {self.audio_id[:20]}..."
+        return self.title or f"Music #{self.id}"
 
 
 class MiniPractice(Base):
@@ -202,10 +181,10 @@ class MiniPractice(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"MiniPractice(id={self.id}')"
+        return f"MiniPractice(id={self.id})"
 
     def __str__(self):
-        return f"{self.audio_id[:20]}..."
+        return self.title or f"MiniPractice #{self.id}"
 
 
 class Video(Base):
@@ -220,10 +199,10 @@ class Video(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Video(id={self.id}')"
+        return f"Video(id={self.id})"
 
     def __str__(self):
-        return f"{self.video_id[:20]}..."
+        return self.title or f"Video #{self.id}"
 
 
 class Image(Base):
@@ -235,13 +214,13 @@ class Image(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Image(id={self.id}')"
+        return f"Image(id={self.id})"
 
     def __str__(self):
-        return f"{self.image_id[:20]}..."
+        return self.title or f"Image #{self.id}"
 
 
-class Texts(Base):
+class TextItem(Base):
     __tablename__ = "texts"
 
     id = Column(Integer, primary_key=True)
@@ -252,10 +231,10 @@ class Texts(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Text(id={self.id}')"
+        return f"TextItem(id={self.id})"
 
     def __str__(self):
-        return f"{self.text[:20]}..."
+        return self.text[:20] + "..." if self.text else f"TextItem #{self.id}"
 
 
 class NotificationLog(Base):
@@ -275,3 +254,170 @@ class NotificationLog(Base):
     def __str__(self):
         date_str = self.sent_at.strftime('%Y-%m-%d %H:%M') if self.sent_at else 'Unknown date'
         return f"{self.type.value} - {date_str}"
+
+
+class ProductType(enum.Enum):
+    premium_lifetime = "premium_lifetime"
+    article = "article"
+    music = "music"
+    video = "video"
+    mini_practice = "mini_practice"
+    image = "image"
+    text = "text"
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(100), unique=True, nullable=False)  # premium_lifetime, article_15
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+
+    product_type = Column(Enum(ProductType), nullable=False)
+    price_value = Column(Integer, nullable=False)  # в копейках
+    currency = Column(String(3), default="RUB", nullable=False)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_repeatable = Column(Boolean, default=False, nullable=False)  # можно ли покупать повторно
+
+    # ссылка на конкретный контент
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
+    music_id = Column(Integer, ForeignKey("music.id"), nullable=True)
+    video_id = Column(Integer, ForeignKey("video.id"), nullable=True)
+    mini_practice_id = Column(Integer, ForeignKey("mini_practices.id"), nullable=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=True)
+    text_id = Column(Integer, ForeignKey("texts.id"), nullable=True)
+
+    orders = relationship("Order", back_populates="product")
+    entitlements = relationship("UserEntitlement", back_populates="product")
+    article = relationship("Article")
+    music = relationship("Music")
+    video = relationship("Video")
+    mini_practice = relationship("MiniPractice")
+    image = relationship("Image")
+    text_item = relationship("TextItem")
+
+
+class OrderStatus(enum.Enum):
+    pending = "pending"
+    waiting_for_payment = "waiting_for_payment"
+    paid = "paid"
+    canceled = "canceled"
+    failed = "failed"
+    refunded = "refunded"
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+
+    status = Column(Enum(OrderStatus), default=OrderStatus.pending, nullable=False)
+
+    amount_value = Column(Integer, nullable=False)  # фиксируем цену на момент покупки
+    currency = Column(String(3), default="RUB", nullable=False)
+
+    external_ref = Column(String(100), unique=True)  # твой публичный номер заказа
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    paid_at = Column(DateTime(timezone=True))
+
+    user = relationship("User", back_populates="orders")
+    product = relationship("Product", back_populates="orders")
+    payments = relationship("Payment", back_populates="order")
+    entitlements = relationship("UserEntitlement", back_populates="order")
+
+
+class PaymentStatus(enum.Enum):
+    pending = "pending"
+    waiting_for_capture = "waiting_for_capture"
+    succeeded = "succeeded"
+    canceled = "canceled"
+
+
+class PaymentProvider(enum.Enum):
+    yookassa = "yookassa"
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+
+    provider = Column(Enum(PaymentProvider), default=PaymentProvider.yookassa, nullable=False)
+    provider_payment_id = Column(String(100), unique=True, nullable=False)  # payment.id из ЮKassa
+
+    status = Column(Enum(PaymentStatus), nullable=False)
+    amount_value = Column(Integer, nullable=False)
+    income_amount_value = Column(Integer)  # если пригодится
+    currency = Column(String(3), default="RUB", nullable=False)
+
+    paid = Column(Boolean, default=False, nullable=False)
+    refundable = Column(Boolean, default=False, nullable=False)
+    test = Column(Boolean, default=False, nullable=False)
+    idempotence_key = Column(String(64), unique=True, nullable=False)
+
+    payment_method_type = Column(String(50))
+    payment_method_id = Column(String(100))  # для будущих рекуррентов
+    confirmation_url = Column(Text)
+
+    raw_response = Column(Text)  # json строкой или JSONB, если postgres
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    confirmed_at = Column(DateTime(timezone=True))
+
+    order = relationship("Order", back_populates="payments")
+    last_checked_at = Column(DateTime(timezone=True))
+    status_synced_at = Column(DateTime(timezone=True))
+    check_attempts = Column(Integer, default=0, nullable=False)
+    finalized_at = Column(DateTime(timezone=True))
+    status_description = Column(Text)
+
+class EntitlementType(enum.Enum):
+    premium_lifetime = "premium_lifetime"
+    article_access = "article_access"
+    music_access = "music_access"
+    video_access = "video_access"
+    mini_practice_access = "mini_practice_access"
+    image_access = "image_access"
+    text_access = "text_access"
+
+
+class UserEntitlement(Base):
+    __tablename__ = "user_entitlements"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    entitlement_type = Column(Enum(EntitlementType), nullable=False)
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
+    music_id = Column(Integer, ForeignKey("music.id"), nullable=True)
+    video_id = Column(Integer, ForeignKey("video.id"), nullable=True)
+    mini_practice_id = Column(Integer, ForeignKey("mini_practices.id"), nullable=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=True)
+    text_id = Column(Integer, ForeignKey("texts.id"), nullable=True)
+
+    granted_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # null = навсегда
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    user = relationship("User", back_populates="entitlements")
+    product = relationship("Product", back_populates="entitlements")
+    order = relationship("Order", back_populates="entitlements")
+    article = relationship("Article")
+    music = relationship("Music")
+    video = relationship("Video")
+    mini_practice = relationship("MiniPractice")
+    image = relationship("Image")
+    text_item = relationship("TextItem")

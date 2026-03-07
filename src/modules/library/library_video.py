@@ -1,18 +1,11 @@
+from sqlalchemy import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.db.database import SessionLocal
-from src.db.models import Video, User
+
+from src.db.database import AsyncSessionLocal
+from src.db.models import Video
+from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
-
-
-async def _is_user_subscribed(user_id: int) -> bool:
-    """Проверяет подписку пользователя"""
-    with SessionLocal() as db:
-        try:
-            user: User = db.query(User).filter(User.tg_id == user_id).first()
-            return bool(user and user.subscribed)
-        finally:
-            db.close()
 
 
 async def show_video_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -21,45 +14,42 @@ async def show_video_content(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if query:
         await query.answer()
 
-    with SessionLocal() as db:
-        try:
-            categories = (
-                db.query(Video.category_1)
-                .filter(Video.section == 'library')
-                .distinct()
-                .order_by(Video.category_1)
-                .all()
-            )
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Video.category_1)
+            .where(Video.section == "library")
+            .distinct()
+            .order_by(Video.category_1)
+        )
+        categories = result.scalars().all()
 
-            buttons = [
-                [InlineKeyboardButton(cat[0], callback_data=f"video_category_{cat[0]}")]
-                for cat in categories
-                if cat and cat[0]
-            ]
+        buttons = [
+            [InlineKeyboardButton(cat, callback_data=f"video_category_{cat}")]
+            for cat in categories
+            if cat and cat
+        ]
 
-            if not buttons:
-                await replace_menu_message(
-                    chat_id=update.effective_chat.id,
-                    context=context,
-                    text="🎞 Киноплёнки\n\nПока нет доступных категорий.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("🔙 Назад", callback_data="library")]]
-                    ),
-                    media_files=None,
-                )
-                return
-
-            buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
-
+        if not buttons:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text="🎞 Киноплёнки\n\nВыберите категорию:",
-                reply_markup=InlineKeyboardMarkup(buttons),
+                text="🎞 Киноплёнки\n\nПока нет доступных категорий.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="library")]]
+                ),
                 media_files=None,
             )
-        finally:
-            db.close()
+            return
+
+        buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
+
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text="🎞 Киноплёнки\n\nВыберите категорию:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            media_files=None,
+        )
 
 
 async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -69,62 +59,62 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
     category = query.data.replace("video_category_", "", 1)
 
-    with SessionLocal() as db:
-        try:
-            videos = (
-                db.query(Video)
-                .filter(Video.category_1 == category, Video.section == 'library')
-                .order_by(Video.id)
-                .all()
+    with AsyncSessionLocal() as db1:
+        result = await db.execute(
+            select(Video)
+            .where(
+                Video.category_1 == category,
+                Video.section == "library"
             )
+            .order_by(Video.id)
+        )
+        videos = result.scalars().all()
 
-            if not videos:
-                await replace_menu_message(
-                    chat_id=update.effective_chat.id,
-                    context=context,
-                    text=f"🎞 {category}\n\nВ этой категории пока нет видео.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]
-                        ]
-                    ),
-                    media_files=None,
-                )
-                return
-
-            user_id = update.effective_user.id
-            is_subscribed = await _is_user_subscribed(user_id)
-
-            buttons = []
-            for video in videos:
-                prefix = "$ " if video.premium else "▶️ "
-                callback_data = f"video_{video.id}"
-
-                if video.premium and not is_subscribed:
-                    video_title = "Премиум контент"
-                else:
-                    video_title = getattr(video, "title", None) or f"Видео {video.id}"
-                description = f"{prefix}{video_title}"
-                if len(description) > 40:
-                    description = description[:37] + "..."
-
-                buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
-
-            buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_videos")])
-
-            text = f"🎞 {category}\n\nВыберите видео:"
-            if any(v.premium for v in videos) and not is_subscribed:
-                text += "\n\n$ - видео доступны по подписке"
-
+        if not videos:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(buttons),
+                text=f"🎞 {category}\n\nВ этой категории пока нет видео.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]
+                    ]
+                ),
                 media_files=None,
             )
-        finally:
-            db.close()
+            return
+
+        user_id = update.effective_user.id
+        is_subscribed = await is_user_subscribed(user_id)
+
+        buttons = []
+        for video in videos:
+            prefix = "$ " if video.premium else "▶️ "
+            callback_data = f"video_{video.id}"
+
+            if video.premium and not is_subscribed:
+                video_title = "Премиум контент"
+            else:
+                video_title = getattr(video, "title", None) or f"Видео {video.id}"
+            description = f"{prefix}{video_title}"
+            if len(description) > 40:
+                description = description[:37] + "..."
+
+            buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
+
+        buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_videos")])
+
+        text = f"🎞 {category}\n\nВыберите видео:"
+        if any(v.premium for v in videos) and not is_subscribed:
+            text += "\n\n$ - видео доступны по подписке"
+
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            media_files=None,
+        )
 
 
 async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -134,57 +124,57 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     video_id = int(query.data.replace("video_", "", 1))
 
-    with SessionLocal() as db:
-        try:
-            video = db.query(Video).filter(Video.id == video_id).first()
-            if not video:
-                await replace_menu_message(
-                    chat_id=update.effective_chat.id,
-                    context=context,
-                    text="🎞 Видео не найдено.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
-                    ),
-                    media_files=None,
-                )
-                return
-
-            user_id = update.effective_user.id
-            is_subscribed = await _is_user_subscribed(user_id)
-
-            video_title = getattr(video, "title", None) or f"Видео {video.id}"
-            category = getattr(video, "category", None) or "Видео"
-
-            if video.premium and not is_subscribed:
-                await replace_menu_message(
-                    chat_id=update.effective_chat.id,
-                    context=context,
-                    text=f"*🎞 Премиум контент*\n\n🔒 Это видео доступно только по подписке.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
-                            [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
-                        ]
-                    ),
-                    media_files=None,
-                )
-                return
-
-            description = getattr(video, "description", None) or ""
-            text = f"*🎞 {video_title}*"
-            if description:
-                text += f"\n\n{description}"
-
-            buttons = [
-                [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
-            ]
-
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Video).where(Video.id == video_id)
+        )
+        video = result.scalars().first()
+        if not video:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                media_files=[video.video_id],
+                text="🎞 Видео не найдено.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+                ),
+                media_files=None,
             )
-        finally:
-            db.close()
+            return
+
+        user_id = update.effective_user.id
+        is_subscribed = await is_user_subscribed(user_id)
+
+        video_title = getattr(video, "title", None) or f"Видео {video.id}"
+        category = getattr(video, "category", None) or "Видео"
+
+        if video.premium and not is_subscribed:
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text=f"*🎞 Премиум контент*\n\n🔒 Это видео доступно только по подписке.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
+                        [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
+                    ]
+                ),
+                media_files=None,
+            )
+            return
+
+        description = getattr(video, "description", None) or ""
+        text = f"*🎞 {video_title}*"
+        if description:
+            text += f"\n\n{description}"
+
+        buttons = [
+            [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
+        ]
+
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            media_files=[video.video_id],
+        )

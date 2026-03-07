@@ -1,10 +1,11 @@
 import datetime
 
+from sqlalchemy import select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData, UserState
-from src.db.database import SessionLocal
+from src.db.database import AsyncSessionLocal
 from src.db.models import User
 from src.log import log_interaction
 from src.modules.menu_renderer import replace_menu_message
@@ -24,11 +25,15 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
             umt = "0" + umt
         time = datetime.time.fromisoformat(umt)
         user_id = update.effective_user.id
-        with SessionLocal() as db:
-            user = db.query(User).filter(User.tg_id == user_id).first()
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(User).where(User.tg_id == user_id)
+            )
+            user = result.scalars().first()
+
             if user:
                 user.practice_time = time.strftime("%H:%M")
-                db.commit()
+                await db.commit()
                 user_data.state = UserState.IDLE
                 await replace_menu_message(
                     chat_id=update.message.chat.id,
@@ -82,25 +87,26 @@ async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_T
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Сохраняем время в БД
-    with SessionLocal() as db:
-        try:
-            user = db.query(User).filter(User.tg_id == user_id).first()
-            if user:
-                user.practice_time = time_str
-                db.commit()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(User).where(User.tg_id == user_id)
+        )
+        user = result.scalars().first()
 
-                # Показываем главное меню из YAML после настройки
-                await query.edit_message_text(
-                    f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
-                    f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
-                    f"Когда будете готовы начать - нажмите кнопку ниже:",
-                    parse_mode='Markdown',
-                    reply_markup=reply_markup
-                )
-            else:
-                await query.edit_message_text("Пользователь не найден. Начните с /start")
-        finally:
-            db.close()
+        if user:
+            user.practice_time = time_str
+            await db.commit()
+
+            # Показываем главное меню из YAML после настройки
+            await query.edit_message_text(
+                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
+                f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
+                f"Когда будете готовы начать - нажмите кнопку ниже:",
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+        else:
+            await query.edit_message_text("Пользователь не найден. Начните с /start")
 
 
 async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -120,39 +126,40 @@ async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAUL
     user_id = query.from_user.id
 
     # Сохраняем часовой пояс в БД
-    with SessionLocal() as db:
-        try:
-            user: User = db.query(User).filter(User.tg_id == user_id).first()
-            if user:
-                user.timezone = gmt_offset
-                db.commit()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(User).where(User.tg_id == user_id)
+        )
+        user: User | None = result.scalars().first()
 
-                # Переходим к выбору времени практики
-                user_data: UserContextData = context.user_data
-                user_data.state = UserState.WAITING_TIME
+        if user:
+            user.timezone = str(gmt_offset)
+            await db.commit()
 
-                if user.practice_time:
-                    await settings_handler(update, context)
-                else:
+            # Переходим к выбору времени практики
+            user_data: UserContextData = context.user_data
+            user_data.state = UserState.WAITING_TIME
 
-                    text = '''
-        У каждого свой ритм — и я предлагаю тебе выбрать свой.  
-        Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
-        
-        ✦ Просто напиши мне подходящее для себя время.
-        
-        _Формат: ЧЧ:ММ_ 
-                    '''
+            if user.practice_time:
+                await settings_handler(update, context)
+            else:
 
-                    await replace_menu_message(
-                        chat_id=query.message.chat.id,
-                        context=context,
-                        text=text,
-                        buttons=[],
-                        media_files=[],
-                    )
-        finally:
-            db.close()
+                text = '''
+    У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+    Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+    
+    ✦ Просто напиши мне подходящее для себя время.
+    
+    _Формат: ЧЧ:ММ_ 
+                '''
+
+                await replace_menu_message(
+                    chat_id=query.message.chat.id,
+                    context=context,
+                    text=text,
+                    buttons=[],
+                    media_files=[],
+                )
 
 
 def get_timezones_kb():
