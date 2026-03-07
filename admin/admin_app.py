@@ -23,7 +23,7 @@ from src.db.models import (
     Product,
     Order,
     Payment,
-    UserEntitlement,
+    UserEntitlement, ProductItem,
 )
 
 
@@ -57,6 +57,7 @@ def create_admin_app():
     admin.add_view(DefaultView(Image, session, category="Content"))
     admin.add_view(DefaultView(TextItem, session, category="Content"))
     admin.add_view(DefaultView(Product, session, category="Acquiring"))
+    admin.add_view(DefaultView(ProductItem, session, category="Acquiring"))
     admin.add_view(DefaultView(Order, session, category="Acquiring"))
     admin.add_view(DefaultView(Payment, session, category="Acquiring"))
     admin.add_view(DefaultView(UserEntitlement, session, category="Acquiring"))
