@@ -16,12 +16,6 @@ from sqlalchemy.sql import func
 from src.db.database import Base
 
 
-class FavoriteItemType(enum.Enum):
-    article = "article"
-    music = "music"
-    practice = "practice"
-
-
 class NotificationType(enum.Enum):
     daily = "daily"
     practice_reminder = "practice_reminder"
@@ -142,43 +136,6 @@ class Phrase(Base):
         return f"{self.text[:50]}..." if len(self.text) > 50 else self.text
 
 
-class Achievement(Base):
-    __tablename__ = "achievements"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    icon = Column(String(255))
-    condition_type = Column(String(100))
-    condition_value = Column(Integer)
-
-    user_achievements = relationship("UserAchievement", back_populates="achievement")
-
-    def __repr__(self):
-        return f"Achievement(id={self.id}, name='{self.name}')"
-
-    def __str__(self):
-        return self.name
-
-
-class UserAchievement(Base):
-    __tablename__ = "user_achievements"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False)
-    unlocked_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    user = relationship("User", back_populates="achievements")
-    achievement = relationship("Achievement", back_populates="user_achievements")
-
-    def __repr__(self):
-        return f"UserAchievement(user_id={self.user_id}, achievement_id={self.achievement_id})"
-
-    def __str__(self):
-        return f"{self.achievement.name} - {self.user.username}"
-
-
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
@@ -197,26 +154,6 @@ class Subscription(Base):
     def __str__(self):
         status = "active" if self.is_active else "inactive"
         return f"{self.plan_type} ({status})"
-
-
-class Emotion(Base):
-    __tablename__ = "emotions"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    emotion_name = Column(String(255))
-    note = Column(Text)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    user = relationship("User", back_populates="emotions")
-
-    def __repr__(self):
-        return f"Emotion(id={self.id}, user_id={self.user_id}, emotion='{self.emotion_name}')"
-
-    def __str__(self):
-        return f"{self.emotion_name} - {self.created_at.strftime('%Y-%m-%d') if self.created_at else ''}"
 
 
 class Article(Base):
@@ -319,24 +256,6 @@ class Texts(Base):
 
     def __str__(self):
         return f"{self.text[:20]}..."
-
-
-class Favorite(Base):
-    __tablename__ = "favorites"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    item_type = Column(Enum(FavoriteItemType), nullable=False)
-    item_id = Column(Integer, nullable=False)
-
-    user = relationship("User", back_populates="favorites")
-
-    def __repr__(self):
-        return f"Favorite(id={self.id}, user_id={self.user_id}, type={self.item_type.value})"
-
-    def __str__(self):
-        return f"{self.item_type.value} #{self.item_id}"
 
 
 class NotificationLog(Base):
