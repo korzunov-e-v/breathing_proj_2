@@ -302,7 +302,7 @@ class ProductItem(Base):
         return f"ProductItem(id={self.id}, product_id={self.product_id}, item_type={self.item_type.value})"
 
     def __str__(self):
-        return f"{self.item_type.value} item #{self.id}"
+        return f"{self.item_type} item #{self.id}"
 
 
 class Product(Base):
