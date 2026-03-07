@@ -31,7 +31,7 @@ class Mood(Base):
     icon = Column(String(255))
 
     def __repr__(self):
-        return f"Mood(id={self.id}, name='{self.name})"
+        return f"Mood(id={self.id}, name={self.name})"
 
     def __str__(self):
         return self.name
@@ -70,7 +70,7 @@ class User(Base):
     entitlements = relationship("UserEntitlement", back_populates="user")
 
     def __repr__(self):
-        return f"User(id={self.id}, tg_id={self.tg_id}, username='{self.username})"
+        return f"User(id={self.id}, tg_id={self.tg_id}, username={self.username})"
 
     def __str__(self):
         return f"{self.username} (ID: {self.tg_id})" if self.username else f"User {self.tg_id}"
@@ -129,7 +129,7 @@ class Phrase(Base):
     for_premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Phrase(id={self.id}, category='{self.category})"
+        return f"Phrase(id={self.id}, category={self.category})"
 
     def __str__(self):
         return f"{self.text[:50]}..." if len(self.text) > 50 else self.text
@@ -146,7 +146,7 @@ class Article(Base):
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"Article(id={self.id}, title='{self.title})"
+        return f"Article(id={self.id}, title={self.title})"
 
     def __str__(self):
         return self.title
@@ -264,7 +264,39 @@ class ProductType(enum.Enum):
     mini_practice = "mini_practice"
     image = "image"
     text = "text"
+    bundle = "bundle"
 
+
+class ProductItemType(enum.Enum):
+    article = "article"
+    music = "music"
+    video = "video"
+    mini_practice = "mini_practice"
+    image = "image"
+    text = "text"
+
+
+class ProductItem(Base):
+    __tablename__ = "product_items"
+
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+
+    item_type = Column(Enum(ProductItemType), nullable=False)
+
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
+    music_id = Column(Integer, ForeignKey("music.id"), nullable=True)
+    video_id = Column(Integer, ForeignKey("video.id"), nullable=True)
+    mini_practice_id = Column(Integer, ForeignKey("mini_practices.id"), nullable=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=True)
+    text_id = Column(Integer, ForeignKey("texts.id"), nullable=True)
+    product = relationship("Product", back_populates="items")
+    article = relationship("Article")
+    music = relationship("Music")
+    video = relationship("Video")
+    mini_practice = relationship("MiniPractice")
+    image = relationship("Image")
+    text_item = relationship("TextItem")
 
 class Product(Base):
     __tablename__ = "products"
@@ -297,7 +329,11 @@ class Product(Base):
     mini_practice = relationship("MiniPractice")
     image = relationship("Image")
     text_item = relationship("TextItem")
-
+    items = relationship(
+        "ProductItem",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
 
 class OrderStatus(enum.Enum):
     pending = "pending"
@@ -377,6 +413,7 @@ class Payment(Base):
     check_attempts = Column(Integer, default=0, nullable=False)
     finalized_at = Column(DateTime(timezone=True))
     status_description = Column(Text)
+
 
 class EntitlementType(enum.Enum):
     premium_lifetime = "premium_lifetime"
