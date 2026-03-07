@@ -298,6 +298,13 @@ class ProductItem(Base):
     image = relationship("Image")
     text_item = relationship("TextItem")
 
+    def __repr__(self):
+        return f"ProductItem(id={self.id}, product_id={self.product_id}, item_type={self.item_type.value})"
+
+    def __str__(self):
+        return f"{self.item_type.value} item #{self.id}"
+
+
 class Product(Base):
     __tablename__ = "products"
 
@@ -335,6 +342,13 @@ class Product(Base):
         cascade="all, delete-orphan",
     )
 
+    def __repr__(self):
+        return f"Product(id={self.id}, code={self.code}, type={self.product_type.value})"
+
+    def __str__(self):
+        return self.title or f"{self.code}"
+
+
 class OrderStatus(enum.Enum):
     pending = "pending"
     waiting_for_payment = "waiting_for_payment"
@@ -366,6 +380,12 @@ class Order(Base):
     product = relationship("Product", back_populates="orders")
     payments = relationship("Payment", back_populates="order")
     entitlements = relationship("UserEntitlement", back_populates="order")
+
+    def __repr__(self):
+        return f"Order(id={self.id}, external_ref={self.external_ref}, status={self.status.value})"
+
+    def __str__(self):
+        return f"Order #{self.external_ref or self.id} - {self.status.value}"
 
 
 class PaymentStatus(enum.Enum):
@@ -414,6 +434,12 @@ class Payment(Base):
     finalized_at = Column(DateTime(timezone=True))
     status_description = Column(Text)
 
+    def __repr__(self):
+        return f"Payment(id={self.id}, provider_payment_id={self.provider_payment_id}, status={self.status.value})"
+
+    def __str__(self):
+        return f"Payment {self.provider_payment_id} - {self.status.value}"
+
 
 class EntitlementType(enum.Enum):
     premium_lifetime = "premium_lifetime"
@@ -458,3 +484,10 @@ class UserEntitlement(Base):
     mini_practice = relationship("MiniPractice")
     image = relationship("Image")
     text_item = relationship("TextItem")
+
+    def __repr__(self):
+        return f"UserEntitlement(id={self.id}, user_id={self.user_id}, type={self.entitlement_type.value})"
+
+    def __str__(self):
+        status = "active" if self.is_active else "inactive"
+        return f"{self.entitlement_type.value} for User #{self.user_id} ({status})"
