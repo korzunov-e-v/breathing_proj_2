@@ -114,14 +114,14 @@ async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user.id,
             music.id,
         )
+        category_callback = f"music_category_{music.category}" if music.category else "library_sounds"
 
         # Определяем доступность трека
         if music.premium and not has_access:
-            # Премиум трек без подписки
-            text = f"*🎶 {music.category}*\n\n🔒 Этот трек доступен только по подписке."
+            text = f"*🎶 {music.category or 'Музыка'}*\n\n🔒 Этот трек доступен только после покупки."
             buttons = [
-                [InlineKeyboardButton("✨ Оформить подписку", callback_data="subscription")],
-                [InlineKeyboardButton("🔙 Назад к трекам", callback_data=f"music_category_{music.category}")]
+                [InlineKeyboardButton("✨ Купить трек", callback_data=f"buy_music_{music.id}")],
+                [InlineKeyboardButton("🔙 Назад к трекам", callback_data=category_callback)]
             ]
 
             await replace_screen(

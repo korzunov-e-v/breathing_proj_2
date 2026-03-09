@@ -109,10 +109,10 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"*🌬 Практика {practice.id} - {practice.title}*\n\n🔒 Эта практика доступна только по подписке.",
+                text=f"*🌬 Практика {practice.id} - {practice.title}*\n\n🔒 Эта практика доступна только после покупки.",
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
+                        [InlineKeyboardButton("✨ Купить практику", callback_data=f"buy_minipractice_{practice.id}")],
                         [InlineKeyboardButton("🔙 Назад", callback_data="library_practices")]
                     ]
                 ),

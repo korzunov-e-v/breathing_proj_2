@@ -159,17 +159,19 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         video_title = getattr(video, "title", None) or f"Видео {video.id}"
-        category = getattr(video, "category", None) or "Видео"
+        category = getattr(video, "category", None)
+        category_display = category or "Видео"
+        category_callback = f"video_category_{category}" if category else "library_videos"
 
         if video.premium and not has_access:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"*🎞 Премиум контент*\n\n🔒 Это видео доступно только по подписке.",
+                text=f"*🎞 {category_display}*\n\n🔒 Это видео доступно только после покупки.",
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton("✨ Подписка", callback_data="subscription")],
-                        [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
+                        [InlineKeyboardButton("✨ Купить видео", callback_data=f"buy_video_{video.id}")],
+                        [InlineKeyboardButton("🔙 Назад к видео", callback_data=category_callback)]
                     ]
                 ),
                 media_files=None,
@@ -182,7 +184,7 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f"\n\n{description}"
 
         buttons = [
-            [InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_category_{category}")]
+            [InlineKeyboardButton("🔙 Назад к видео", callback_data=category_callback)]
         ]
 
         await replace_menu_message(

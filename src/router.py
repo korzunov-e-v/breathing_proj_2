@@ -6,7 +6,11 @@ from telegram.ext import ContextTypes
 
 from src.modules.acquiring.handlers import (
     buy_additional_practice,
+    buy_article,
+    buy_music,
+    buy_minipractice,
     buy_subscription,
+    buy_video,
     show_subscription_offer,
 )
 from src.modules.additional_practices.handlers import (
@@ -99,6 +103,10 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("music_", play_music),
     ("video_category_", show_video_by_category),
     ("video_", show_video),
+    ("buy_article_", buy_article),
+    ("buy_music_", buy_music),
+    ("buy_video_", buy_video),
+    ("buy_minipractice_", buy_minipractice),
     ("minipractice_", show_mini_practice),
     ("ap_cat1_", show_additional_practices_subcategories),
     ("ap_cat2_", show_additional_practice_content),
