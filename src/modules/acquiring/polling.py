@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from email.mime import application
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.db.models import (
     Music,
@@ -68,8 +70,16 @@ async def _notify_successful_payment(application, session, payment):
         f"Стоимость: {amount_text}\n\n"
         "Материалы отправляю в этом чате."
     )
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("📋 В моё пространство", callback_data="menu")]]
+    )
     try:
-        await application.bot.send_message(chat_id=user.tg_id, text=text, parse_mode="HTML")
+        await application.bot.send_message(
+            chat_id=user.tg_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
     except Exception as exc:
         logger.error("failed to notify user %s about payment %s: %s", user.tg_id, payment.id, exc)
         return
@@ -176,7 +186,11 @@ async def _send_additional_practice_materials(
     else:
         text_message = f"{header}\n\nПока нет доступных текстовых материалов, но аудио и видео отправлены."
 
+
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("📋 В моё пространство", callback_data="menu")]]
+    )
     try:
-        await application.bot.send_message(chat_id=chat_id, text=text_message)
+        await application.bot.send_message(chat_id=chat_id, text=text_message, reply_markup=keyboard)
     except Exception:
         logger.exception("failed to send practice text summary to %s", chat_id)
