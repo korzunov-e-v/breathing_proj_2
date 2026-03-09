@@ -372,7 +372,7 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
             .distinct()
         )
         completed_practices = result.scalars().all()
-        completed_ids = [p[0] for p in completed_practices]
+        completed_ids = [p for p in completed_practices]
 
         if not completed_ids:
             # Если нет пройденных практик

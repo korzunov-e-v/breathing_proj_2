@@ -15,9 +15,6 @@ class AccessService:
         return await queries.user_has_premium_lifetime(self.session, user_id)
 
     async def has_article_access(self, user_id: int, article_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,
@@ -27,9 +24,6 @@ class AccessService:
         return entitlement is not None
 
     async def has_music_access(self, user_id: int, music_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,
@@ -39,9 +33,6 @@ class AccessService:
         return entitlement is not None
 
     async def has_video_access(self, user_id: int, video_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,
@@ -51,9 +42,6 @@ class AccessService:
         return entitlement is not None
 
     async def has_mini_practice_access(self, user_id: int, mini_practice_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,
@@ -63,9 +51,6 @@ class AccessService:
         return entitlement is not None
 
     async def has_image_access(self, user_id: int, image_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,
@@ -75,9 +60,6 @@ class AccessService:
         return entitlement is not None
 
     async def has_text_access(self, user_id: int, text_id: int) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         entitlement = await queries.get_active_entitlement(
             self.session,
             user_id=user_id,

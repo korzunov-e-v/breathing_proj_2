@@ -3,8 +3,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.db.database import AsyncSessionLocal
-from src.db.models import Music
-from src.modules.library.tools import is_user_subscribed
+from src.db.models import Music, User
+from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_screen
 
 
@@ -51,25 +51,33 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
             )
         )
         music_tracks = result.scalars().all()
-        # Проверяем подписку пользователя
-        user_id = update.effective_user.id
-        is_subscribed = await is_user_subscribed(user_id)
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
 
         buttons = []
+        has_locked_premium = False
         for music in music_tracks:
-            # Если трек премиум и пользователь не подписан, показываем заблокированным
-            prefix = "$ " if music.premium else ""
+            has_access = bool(user) and await access_service.has_music_access(
+                user.id,
+                music.id,
+            )
+            prefix = "$ " if music.premium and not has_access else ""
             callback_data = f"music_{music.id}"
 
             # Создаем описание для трека
-            music_title = "Премиум контент" if music.premium else music.title
+            music_title = "Премиум контент" if music.premium and not has_access else music.title
             description = f"{prefix}{music_title}"
             buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
+            if music.premium and not has_access:
+                has_locked_premium = True
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_sounds")])
 
         text = f"🎶 {category}\n\nВыберите трек:"
-        if any(music.premium for music in music_tracks) and not is_subscribed:
+        if has_locked_premium:
             text += "\n\n$ - треки доступны по подписке"
 
         await replace_screen(
@@ -97,12 +105,18 @@ async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         music = result.scalars().first()
 
-        # Проверяем подписку
-        user_id = update.effective_user.id
-        is_subscribed = await is_user_subscribed(user_id)
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
+        has_access = bool(user) and await access_service.has_music_access(
+            user.id,
+            music.id,
+        )
 
         # Определяем доступность трека
-        if music.premium and not is_subscribed:
+        if music.premium and not has_access:
             # Премиум трек без подписки
             text = f"*🎶 {music.category}*\n\n🔒 Этот трек доступен только по подписке."
             buttons = [

@@ -123,3 +123,133 @@ async def buy_additional_practice(update: Update, context: ContextTypes.DEFAULT_
         ),
         media_files=None,
     )
+
+
+async def _get_active_premium_product(db):
+    result = await db.execute(
+        select(Product).where(
+            Product.product_type == ProductType.premium_lifetime,
+            Product.is_active.is_(True),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def show_subscription_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = query.message.chat.id if query and query.message else update.effective_chat.id
+    async with AsyncSessionLocal() as db:
+        product = await _get_active_premium_product(db)
+
+    if not product:
+        await replace_menu_message(
+            chat_id=chat_id,
+            context=context,
+            text="Подписка пока недоступна. Попробуйте позже.",
+            buttons=[{"text": "🔙 Назад", "goto": "menu"}],
+            media_files=None,
+        )
+        return
+
+    description = product.description or (
+        "Открой доступ к ежедневным премиум практикам, аудио и поддержке."
+    )
+    price_text = f"{product.price_value / 100:.2f} ₽"
+    text = (
+        f"✨ <b>{product.title or 'Полный доступ'}</b>\n\n"
+        f"{description}\n\n"
+        f"Стоимость: {price_text}"
+    )
+    buttons = [
+        {"text": "✨ Купить доступ", "goto": "buy_subscription"},
+        {"text": "🔙 Назад", "goto": "menu"},
+    ]
+    await replace_menu_message(
+        chat_id=chat_id,
+        context=context,
+        text=text,
+        buttons=buttons,
+        media_files=None,
+    )
+
+
+async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = query.message.chat.id if query and query.message else update.effective_chat.id
+
+    async with AsyncSessionLocal() as db:
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text="Пользователь не найден в базе.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        if not await ensure_user_profile(update, context, user):
+            return
+
+        product = await _get_active_premium_product(db)
+        if not product:
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text="Подписка пока недоступна. Попробуйте позже.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        service = AcquiringService(db)
+        try:
+            checkout = await service.create_checkout(
+                user=user,
+                product_code=product.code,
+                user_phone=user.phone,
+                user_email=user.email,
+            )
+        except ProductNotFoundError:
+            text = "Товар не найден."
+        except ProductNotAvailableError:
+            text = "Подписка уже оформлена или недоступна."
+        else:
+            price_text = f"{product.price_value / 100:.2f} ₽"
+            link = checkout.confirmation_url
+            link_text = (
+                f'<a href="{link}">Перейти к оплате</a>' if link else "Ссылка на оплату появится в чате."
+            )
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text=(
+                    f"✨ <b>{product.title or 'Полный доступ'}</b>\n\n"
+                    f"Стоимость: {price_text}\n\n"
+                    f"{link_text}"
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]
+                ),
+                media_files=None,
+            )
+            return
+
+    await replace_menu_message(
+        chat_id=chat_id,
+        context=context,
+        text=text,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]
+        ),
+        media_files=None,
+    )

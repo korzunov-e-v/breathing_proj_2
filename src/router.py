@@ -4,7 +4,11 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.modules.acquiring.handlers import buy_additional_practice
+from src.modules.acquiring.handlers import (
+    buy_additional_practice,
+    buy_subscription,
+    show_subscription_offer,
+)
 from src.modules.additional_practices.handlers import (
     show_additional_practices,
     show_additional_practice_content,
@@ -51,6 +55,8 @@ EXACT_ROUTES: dict[str, Handler] = {
     "library_practices": show_mini_practices_content,
     "analytics": show_analytics,
     "additional_practices": show_additional_practices,
+    "subscription": show_subscription_offer,
+    "subscription_offer": show_subscription_offer,
 
     # онбординг
     "send_onboarding": send_onboarding,
@@ -77,6 +83,7 @@ EXACT_ROUTES: dict[str, Handler] = {
     "remind_later": remind_later_handler,
     "skip_today": skip_today_handler,
     "pause_notifications": pause_notifications_handler,
+    "buy_subscription": buy_subscription,
 }
 
 # ВАЖНО: порядок имеет значение!

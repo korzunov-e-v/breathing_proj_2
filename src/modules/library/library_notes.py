@@ -3,8 +3,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.db.database import AsyncSessionLocal
-from src.db.models import Article
-from src.modules.library.tools import is_user_subscribed
+from src.db.models import Article, User
+from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_screen
 
 
@@ -78,17 +78,25 @@ async def show_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     article_id = int(query.data.replace("article_", ""))
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
+        article_result = await db.execute(
             select(Article).where(Article.id == article_id)
         )
-        article = result.scalars().first()
+        article = article_result.scalars().first()
+
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
 
         if article:
             # Проверяем подписку для премиум статей
-            user_id = update.effective_user.id
-            is_subscribed = await is_user_subscribed(user_id)
+            has_access = bool(user) and await access_service.has_article_access(
+                user.id,
+                article.id,
+            )
 
-            if article.premium and not is_subscribed:
+            if article.premium and not has_access:
                 text = f"*{article.title}*\n\n🔒 Эта статья доступна только по подписке."
                 markup = InlineKeyboardMarkup(
                     [

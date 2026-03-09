@@ -49,7 +49,6 @@ class User(Base):
 
     timezone = Column(String(50))
     practice_time = Column(String(5))
-    subscribed = Column(Boolean, default=False)
     current_day = Column(Integer, default=0)
     streak = Column(Integer, default=0)
 

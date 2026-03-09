@@ -7,7 +7,6 @@ from telegram.ext import ContextTypes
 from src.db.database import AsyncSessionLocal
 from src.db.models import Video, Music, TextItem, User
 from src.modules.acquiring.access import AccessService
-from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
 
 SECTION = "additional_practices"

@@ -3,8 +3,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.db.database import AsyncSessionLocal
-from src.db.models import Video
-from src.modules.library.tools import is_user_subscribed
+from src.db.models import Video, User
+from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_menu_message
 
 
@@ -84,28 +84,35 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
             )
             return
 
-        user_id = update.effective_user.id
-        is_subscribed = await is_user_subscribed(user_id)
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
 
         buttons = []
+        has_locked_premium = False
         for video in videos:
-            prefix = "$ " if video.premium else "▶️ "
+            has_access = bool(user) and await access_service.has_video_access(
+                user.id,
+                video.id,
+            )
+            prefix = "$ " if video.premium and not has_access else "▶️ "
             callback_data = f"video_{video.id}"
 
-            if video.premium and not is_subscribed:
-                video_title = "Премиум контент"
-            else:
-                video_title = getattr(video, "title", None) or f"Видео {video.id}"
+            video_title = "Премиум контент" if video.premium and not has_access else getattr(video, "title", None) or f"Видео {video.id}"
             description = f"{prefix}{video_title}"
             if len(description) > 40:
                 description = description[:37] + "..."
+            if video.premium and not has_access:
+                has_locked_premium = True
 
             buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_videos")])
 
         text = f"🎞 {category}\n\nВыберите видео:"
-        if any(v.premium for v in videos) and not is_subscribed:
+        if has_locked_premium:
             text += "\n\n$ - видео доступны по подписке"
 
         await replace_menu_message(
@@ -141,13 +148,20 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        user_id = update.effective_user.id
-        is_subscribed = await is_user_subscribed(user_id)
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
+        has_access = bool(user) and await access_service.has_video_access(
+            user.id,
+            video.id,
+        )
 
         video_title = getattr(video, "title", None) or f"Видео {video.id}"
         category = getattr(video, "category", None) or "Видео"
 
-        if video.premium and not is_subscribed:
+        if video.premium and not has_access:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
