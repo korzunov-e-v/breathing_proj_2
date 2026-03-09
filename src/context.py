@@ -14,7 +14,8 @@ class UserState(str, Enum):
     WAITING_MOOD_AFTER = "waiting_mood_after"
     WAITING_COMMENT = "waiting_comment"
     FEEDBACK = "FEEDBACK"
-
+    WAITING_PHONE = "waiting_phone"
+    WAITING_EMAIL = "waiting_email"
 
 class PracticeData(BaseModel):
     """Nested model for practice-related data"""
@@ -26,7 +27,6 @@ class PracticeData(BaseModel):
     practice_message_ids: list = []
     feedback_ai_reply: Optional[str] = None
 
-
 class UserContextData(BaseModel):
     """Pydantic model for user context data"""
     state: UserState = UserState.IDLE
@@ -35,6 +35,7 @@ class UserContextData(BaseModel):
     screen_message_id: Optional[int] = None
     ai_chat_context: list = []
     last_chat_message_id: Optional[int] = None
+    pending_purchase_product_code: Optional[str] = None
 
     def clear_practice_data(self) -> None:
         """Clear practice-related fields"""

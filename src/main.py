@@ -16,12 +16,14 @@ from src.context import UserContextData, context_types
 from src.db.database import create_tables, AsyncSessionLocal
 from src.db.models import User
 from src.log import log_interaction, setup_logging
+from src.modules.acquiring.polling import poll_pending_payments
 from src.modules.feedback.handlers import handle_feedback_message
 from src.modules.llm.chat import handle_chat_message
 from src.modules.menu_renderer import show_main_menu
 from src.modules.onboarding.onboarding import send_onboarding
 from src.modules.practice.rate import handle_comment_text
 from src.modules.reminders.tasks import start_scheduler
+from src.modules.settings.contacts import handle_contact, handle_email
 from src.modules.settings.time import handle_change_time
 from src.router import router
 from src.settings import settings
@@ -69,17 +71,18 @@ def main():
     logging.info("🤖 Бот запущен и готов к работе!")
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.CONTACT, handle_contact), group=100)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email), group=101)
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))
     app.add_handler(CallbackQueryHandler(router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback_message), group=103)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_comment_text), group=104, )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_change_time), group=105, )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_message), group=106, )
-
     # После запуска бота запускаем планировщик
     async def on_startup(application):
         asyncio.create_task(start_scheduler(application))
-
+        asyncio.create_task(poll_pending_payments(AsyncSessionLocal, application))
     app.post_init = on_startup
     app.run_polling()
 

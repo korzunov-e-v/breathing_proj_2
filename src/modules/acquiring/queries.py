@@ -83,6 +83,9 @@ async def get_active_entitlement(
     mini_practice_id: int | None = None,
     image_id: int | None = None,
     text_id: int | None = None,
+    section: str | None = None,
+    category_1: str | None = None,
+    category_2: str | None = None,
 ) -> UserEntitlement | None:
     stmt = (
         select(UserEntitlement)
@@ -105,6 +108,12 @@ async def get_active_entitlement(
         stmt = stmt.where(UserEntitlement.image_id == image_id)
     if text_id is not None:
         stmt = stmt.where(UserEntitlement.text_id == text_id)
+    if section is not None:
+        stmt = stmt.where(UserEntitlement.section == section)
+    if category_1 is not None:
+        stmt = stmt.where(UserEntitlement.category_1 == category_1)
+    if category_2 is not None:
+        stmt = stmt.where(UserEntitlement.category_2 == category_2)
 
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -129,6 +138,7 @@ def map_product_type_to_entitlement_type(product_type: ProductType) -> Entitleme
         ProductType.mini_practice: EntitlementType.mini_practice_access,
         ProductType.image: EntitlementType.image_access,
         ProductType.text: EntitlementType.text_access,
+        ProductType.additional_practice: EntitlementType.additional_practice_access,
     }
     return mapping[product_type]
 

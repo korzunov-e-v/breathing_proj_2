@@ -390,10 +390,10 @@ class Order(Base):
     entitlements = relationship("UserEntitlement", back_populates="order")
 
     def __repr__(self):
-        return f"Order(id={self.id}, external_ref={self.external_ref}, status={self.status.value})"
+        return f"Order(id={self.id}, external_ref={self.external_ref}, status={self.status})"
 
     def __str__(self):
-        return f"Order #{self.external_ref or self.id} - {self.status.value}"
+        return f"Order #{self.external_ref or self.id} - {self.status}"
 
 
 class PaymentStatus(enum.Enum):

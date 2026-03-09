@@ -37,7 +37,7 @@ def build_receipt_item(
     description: str,
     amount_value_kopecks: int,
     quantity: str = "1.00",
-    vat_code: int | None = None,
+    vat_code: int = 1,
     payment_mode: str = "full_payment",
     payment_subject: str = "service",
 ) -> ReceiptItem:

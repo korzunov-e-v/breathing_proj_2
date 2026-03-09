@@ -4,6 +4,7 @@ from typing import Callable, Awaitable
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from src.modules.acquiring.handlers import buy_additional_practice
 from src.modules.additional_practices.handlers import (
     show_additional_practices,
     show_additional_practice_content,
@@ -94,6 +95,7 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("minipractice_", show_mini_practice),
     ("ap_cat1_", show_additional_practices_subcategories),
     ("ap_cat2_", show_additional_practice_content),
+    ("buy_ap_", buy_additional_practice),
 ]
 
 

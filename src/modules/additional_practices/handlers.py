@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.db.database import AsyncSessionLocal
-from src.db.models import Video, Music, TextItem
+from src.db.models import Video, Music, TextItem, User
 from src.modules.acquiring.access import AccessService
 from src.modules.library.tools import is_user_subscribed
 from src.modules.menu_renderer import replace_menu_message
@@ -131,13 +131,17 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
         return await show_additional_practices(update, context)
 
     chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
+    user_tg_id = update.effective_user.id
 
     async with AsyncSessionLocal() as db:
+        user_result = await db.execute(
+            select(User).where(User.tg_id == user_tg_id)
+        )
+        user = user_result.scalar_one_or_none()
         access_service = AccessService(db)
 
         has_full_access = await access_service.has_additional_practice_access(
-            user_id=user_id,
+            user_id=user.id,
             section=SECTION,
             category_1=cat1,
             category_2=cat2,

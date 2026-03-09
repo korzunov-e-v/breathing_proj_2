@@ -174,12 +174,19 @@ class AcquiringService:
             "text_id": product.text_id,
         }
         not_none_filters = {k: v for k, v in filters.items() if v is not None}
+        section_filters = {
+            "section": product.section,
+            "category_1": product.category_1,
+            "category_2": product.category_2,
+        }
+        section_filters = {k: v for k, v in section_filters.items() if v is not None}
 
         existing = await queries.get_active_entitlement(
             self.session,
             user_id=order.user_id,
             entitlement_type=entitlement_type,
             **not_none_filters,
+            **section_filters,
         )
         if existing:
             return existing
@@ -195,6 +202,9 @@ class AcquiringService:
             mini_practice_id=product.mini_practice_id,
             image_id=product.image_id,
             text_id=product.text_id,
+            section=product.section,
+            category_1=product.category_1,
+            category_2=product.category_2,
             is_active=True,
         )
         self.session.add(entitlement)

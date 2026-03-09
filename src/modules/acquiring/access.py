@@ -114,7 +114,27 @@ class AccessService:
         if product.product_type == ProductType.text and product.text_id:
             return not await self.has_text_access(user_id, product.text_id)
 
+        if product.product_type == ProductType.additional_practice:
+            return not await self.has_additional_practice_access(
+                user_id=user_id,
+                section=product.section,
+                category_1=product.category_1,
+                category_2=product.category_2,
+            )
+
+        if product.product_type == ProductType.bundle:
+            return not await self.has_product_access(user_id=user_id, product_id=product.id)
+
         return False
+
+    async def has_product_access(self, user_id: int, product_id: int) -> bool:
+        stmt = select(UserEntitlement.id).where(
+            UserEntitlement.user_id == user_id,
+            UserEntitlement.product_id == product_id,
+            UserEntitlement.is_active.is_(True),
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
     async def has_additional_practice_access(
         self,
@@ -124,9 +144,6 @@ class AccessService:
         category_1: str,
         category_2: str,
     ) -> bool:
-        if await self.has_premium(user_id):
-            return True
-
         stmt = select(UserEntitlement.id).where(
             UserEntitlement.user_id == user_id,
             UserEntitlement.entitlement_type == EntitlementType.additional_practice_access,
