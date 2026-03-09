@@ -44,6 +44,9 @@ class User(Base):
     tg_id = Column(Integer, index=True, unique=True, nullable=False)
     username = Column(String(500))
 
+    phone = Column(String(500))
+    email = Column(String(500))
+
     timezone = Column(String(50))
     practice_time = Column(String(5))
     subscribed = Column(Boolean, default=False)
