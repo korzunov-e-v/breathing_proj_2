@@ -12,6 +12,7 @@ from src.modules.acquiring.handlers import (
     buy_subscription,
     buy_video,
     show_subscription_offer,
+    show_subscription_status,
 )
 from src.modules.additional_practices.handlers import (
     show_additional_practices,
@@ -59,7 +60,8 @@ EXACT_ROUTES: dict[str, Handler] = {
     "library_practices": show_mini_practices_content,
     "analytics": show_analytics,
     "additional_practices": show_additional_practices,
-    "subscription": show_subscription_offer,
+    "subscription": show_subscription_status,
+    "subscription_status": show_subscription_status,
     "subscription_offer": show_subscription_offer,
 
     # онбординг

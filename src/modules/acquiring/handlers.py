@@ -1,18 +1,22 @@
+from html import escape
 from sqlalchemy import select
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.context import UserContextData, UserState
+from src.context import UserContextData
 from src.db.database import AsyncSessionLocal
 from src.db.models import (
     Article,
+    EntitlementType,
     MiniPractice,
     Music,
     Product,
     ProductType,
     User,
+    UserEntitlement,
     Video,
 )
+from src.modules.acquiring import queries
 from src.modules.acquiring.service import (
     AcquiringService,
     ProductNotFoundError,
@@ -23,6 +27,16 @@ from src.modules.settings.profile_utils import ensure_user_profile
 
 SECTION = "additional_practices"
 UD_AP_CAT2 = "ap_cat2_map"
+ENTITLEMENT_LABELS = {
+    EntitlementType.premium_lifetime: "Лайфтайм",
+    EntitlementType.article_access: "Доступ к статье",
+    EntitlementType.music_access: "Доступ к музыке",
+    EntitlementType.video_access: "Доступ к видео",
+    EntitlementType.mini_practice_access: "Доступ к мини-практике",
+    EntitlementType.image_access: "Доступ к изображениям",
+    EntitlementType.text_access: "Доступ к текстам",
+    EntitlementType.additional_practice_access: "Дополнительные практики",
+}
 
 
 async def buy_additional_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -43,9 +57,9 @@ async def buy_additional_practice(update: Update, context: ContextTypes.DEFAULT_
             text="Не удалось определить практику. Откройте раздел заново.",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("🔙 Назад", callback_data="additional_practices")]]
-        ),
-        media_files=None,
-    )
+            ),
+            media_files=None,
+        )
         return
 
     async with AsyncSessionLocal() as db:
@@ -645,5 +659,94 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]
         ),
+        media_files=None,
+    )
+
+
+def _entitlement_display_name(entitlement: UserEntitlement) -> str:
+    return ENTITLEMENT_LABELS.get(
+        entitlement.entitlement_type,
+        entitlement.entitlement_type.value.replace("_", " ").capitalize(),
+    )
+
+
+def _format_entitlement_line(entitlement: UserEntitlement) -> str:
+    parts = [escape(_entitlement_display_name(entitlement))]
+    product_title = (entitlement.product.title or "").strip() if entitlement.product else ""
+    if product_title:
+        parts.append(escape(product_title))
+
+    status = "активен" if entitlement.is_active else "неактивен"
+    granted = entitlement.granted_at.strftime("%d.%m.%Y") if entitlement.granted_at else "дата неизвестна"
+    line = f"• {' — '.join(parts)} (<i>{status}</i>, куплено {granted}"
+    if entitlement.expires_at:
+        expires = entitlement.expires_at.strftime("%d.%m.%Y")
+        line += f", действует до {expires}"
+    line += ")"
+    return line
+
+
+def _build_entitlements_text(
+    entitlements: list[UserEntitlement],
+    lifetime_active: bool,
+) -> str:
+    lines = [
+        "✨ <b>Глубже в путешествие</b>",
+        "Здесь видно состояние lifetime-подписок и других приобретённых доступов.",
+        "",
+    ]
+
+    if entitlements:
+        lines.append("<b>Ваши покупки:</b>")
+        lines.extend(_format_entitlement_line(ent) for ent in entitlements)
+    else:
+        lines.append("Пока нет оформленных покупок.")
+
+    lines.append("")
+    lines.append(
+        "<b>Лайфтайм:</b> "
+        + ("куплен и активен." if lifetime_active else "ещё не оформлен.")
+    )
+    return "\n".join(lines)
+
+
+async def show_subscription_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = query.message.chat.id if query and query.message else update.effective_chat.id
+
+    async with AsyncSessionLocal() as db:
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            await replace_menu_message(
+                chat_id=chat_id,
+                context=context,
+                text="Пользователь не найден в базе.",
+                buttons=[{"text": "🔙 Назад", "goto": "menu"}],
+                media_files=None,
+            )
+            return
+
+        entitlements = await queries.get_user_entitlements(db, user.id)
+
+    lifetime_active = any(
+        ent.entitlement_type == EntitlementType.premium_lifetime and ent.is_active
+        for ent in entitlements
+    )
+
+    text = _build_entitlements_text(entitlements, lifetime_active)
+    buttons = []
+    if not lifetime_active:
+        buttons.append({"text": "✨ Купить lifetime", "goto": "subscription_offer"})
+    buttons.append({"text": "🔙 В моё пространство", "goto": "menu"})
+
+    await replace_menu_message(
+        chat_id=chat_id,
+        context=context,
+        text=text,
+        buttons=buttons,
         media_files=None,
     )

@@ -129,6 +129,17 @@ async def user_has_premium_lifetime(session: AsyncSession, user_id: int) -> bool
     return result.scalar_one_or_none() is not None
 
 
+async def get_user_entitlements(session: AsyncSession, user_id: int) -> list[UserEntitlement]:
+    stmt = (
+        select(UserEntitlement)
+        .options(selectinload(UserEntitlement.product))
+        .where(UserEntitlement.user_id == user_id)
+        .order_by(UserEntitlement.granted_at.desc())
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
 def map_product_type_to_entitlement_type(product_type: ProductType) -> EntitlementType:
     mapping = {
         ProductType.premium_lifetime: EntitlementType.premium_lifetime,

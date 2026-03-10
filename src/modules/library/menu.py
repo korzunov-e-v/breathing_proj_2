@@ -34,7 +34,6 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("✍️ Заметки", callback_data="library_notes")],
             [InlineKeyboardButton("🎶 Звуки и вибрации", callback_data="library_sounds")],
             [InlineKeyboardButton("🎞 Киноплёнки", callback_data="library_videos")],
-            [InlineKeyboardButton("🌬 Мини-практики", callback_data="library_practices")],
             [InlineKeyboardButton("🌌 В тишину", callback_data="menu")],
         ]
     )

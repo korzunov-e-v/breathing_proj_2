@@ -11,12 +11,21 @@ async def show_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserContextData = context.user_data
     user_data.state = UserState.FEEDBACK
 
-    text = (
-        "📝 *Обратная связь*\n\n"
-        "Напишите одним сообщением, что вы хотите нам передать.\n"
-        "Мы получим его прямо в боте.\n\n"
-        "Чтобы выйти — нажмите «⬅️ В меню»."
-    )
+    text = """
+Напишите сюда одним сообщением.
+Чтобы мы ответили быстрее — начните с цифры:
+
+1 — вопрос по практикам / как пользоваться
+2 — оплата / доступ
+3 — идея / предложение
+4 — хочу поддержку (1:1 / группа)
+5 — сотрудничество
+
+Добавьте: что произошло и когда.
+Если это про оплату — время и скрин.
+
+Чтобы выйти — «🌌 В моё пространство»
+    """
 
     keyboard = [[InlineKeyboardButton("⬅️ В меню", callback_data="menu")]]
     await replace_menu_message(
