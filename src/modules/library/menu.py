@@ -4,7 +4,8 @@ from telegram.ext import ContextTypes
 
 from src.context import UserContextData
 from src.db.database import AsyncSessionLocal
-from src.db.models import Image
+from src.db.models import Image, User
+from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import cleanup_practice_messages, replace_screen
 
 
@@ -27,13 +28,20 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Выбирай не умом, а ощущением.
     """
-
+    async with AsyncSessionLocal() as db:
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalars().first()
+        access_service = AccessService(db)
+        has_lifetime = bool(user) and await access_service.has_premium(user.id)
     # Клавиатура для библиотеки
     keyboard = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("✍️ Заметки", callback_data="library_notes")],
             [InlineKeyboardButton("🎶 Звуки и вибрации", callback_data="library_sounds")],
             [InlineKeyboardButton("🎞 Киноплёнки", callback_data="library_videos")],
+            [InlineKeyboardButton("🌬 Мини-практики", callback_data="library_practices")]if has_lifetime else [],
             [InlineKeyboardButton("🌌 В тишину", callback_data="menu")],
         ]
     )

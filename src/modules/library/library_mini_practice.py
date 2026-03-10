@@ -39,38 +39,33 @@ async def show_mini_practices_content(update: Update, context: ContextTypes.DEFA
         )
         user = user_result.scalars().first()
         access_service = AccessService(db)
-        practice_access: dict[int, bool] = {}
-        for practice in practices:
-            practice_access[practice.id] = bool(user) and await access_service.has_mini_practice_access(
-                user.id,
-                practice.id,
+        has_lifetime = bool(user) and await access_service.has_premium(user.id)
+        if not has_lifetime:
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text=(
+                    "🌬 Мини-практики\n\n"
+                    "Мини-практики становятся доступны только после покупки lifetime-подписки."
+                ),
+                buttons=[
+                    {"text": "✨ Купить lifetime", "goto": "subscription_offer"},
+                    {"text": "🔙 Назад", "goto": "library"},
+                ],
+                media_files=None,
             )
+            return
 
         # Формируем кнопки для практик
         buttons = []
         for practice in practices:
-            has_access = practice_access.get(practice.id, False)
-            prefix = "$ " if practice.premium and not has_access else "🌀 "
             callback_data = f"minipractice_{practice.id}"
-
-            practice_title = "Премиум контент" if practice.premium and not has_access else practice.title
-            description = f"{prefix}{practice_title}"
-
-            if len(description) > 40:
-                description = description[:37] + "..."
-
-            buttons.append([InlineKeyboardButton(description, callback_data=callback_data)])
+            title = practice.title or f"Практика {practice.id}"
+            buttons.append([InlineKeyboardButton(title, callback_data=callback_data)])
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
 
-        has_locked_premium = any(
-            p.premium and not practice_access.get(p.id, False)
-            for p in practices
-        )
-
         text = "🌬 Мини-практики\n\nВыберите практику:"
-        if has_locked_premium:
-            text += "\n\n$ - практики доступны по подписке"
 
         await replace_menu_message(
             chat_id=update.effective_chat.id,
@@ -100,37 +95,38 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         user = user_result.scalars().first()
         access_service = AccessService(db)
-        has_access = bool(user) and await access_service.has_mini_practice_access(
-            user.id,
-            practice.id,
-        )
+        has_lifetime = bool(user) and await access_service.has_premium(user.id)
 
-        if practice.premium and not has_access:
+        if not has_lifetime:
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"*🌬 Практика {practice.id} - {practice.title}*\n\n🔒 Эта практика доступна только после покупки.",
+                text=(
+                    f"*🌬 Практика {practice.id} - {practice.title}*\n\n"
+                    "🔒 Мини-практики открываются после покупки lifetime-подписки."
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton("✨ Купить практику", callback_data=f"buy_minipractice_{practice.id}")],
+                        [InlineKeyboardButton("✨ Купить lifetime", callback_data="subscription_offer")],
                         [InlineKeyboardButton("🔙 Назад", callback_data="library_practices")]
                     ]
                 ),
                 media_files=None,
             )
-        else:
+            return
+        # Показываем практику с аудио
             # Показываем практику с аудио
-            text = f"*🌬 Практика {practice.id} - {practice.title}*"
+        text = f"*🌬 Практика {practice.id} - {practice.title}*"
 
-            buttons = [
-                [InlineKeyboardButton("🔙 Назад к практикам", callback_data="library_practices")]
-            ]
+        buttons = [
+            [InlineKeyboardButton("🔙 Назад к практикам", callback_data="library_practices")]
+        ]
 
-            # Отправляем аудио практики
-            await replace_menu_message(
-                chat_id=update.effective_chat.id,
-                context=context,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                media_files=[practice.audio_id],
-            )
+        # Отправляем аудио практики
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            media_files=[practice.audio_id],
+        )

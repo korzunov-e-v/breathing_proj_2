@@ -22,6 +22,7 @@ from src.modules.acquiring.service import (
     ProductNotFoundError,
     ProductNotAvailableError,
 )
+from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_menu_message
 from src.modules.settings.profile_utils import ensure_user_profile
 
@@ -421,6 +422,25 @@ async def buy_minipractice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text="Пользователь не найден в базе.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔙 Назад", callback_data=back_callback)]]
+                ),
+                media_files=None,
+            )
+            return
+
+        access_service = AccessService(db)
+        if not await access_service.has_premium(user.id):
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text=(
+                    "*🌬 Мини-практики*\n\nМини-практики доступны после покупки lifetime-подписки.\n"
+                    "Открой полный доступ, чтобы продолжить."
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("✨ Купить lifetime", callback_data="subscription_offer")],
+                        [InlineKeyboardButton("🔙 Назад", callback_data="library_practices")],
+                    ]
                 ),
                 media_files=None,
             )
