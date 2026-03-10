@@ -20,7 +20,9 @@ async def ensure_user_profile(update, context: ContextTypes.DEFAULT_TYPE, user) 
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Чтобы продолжить оплату, отправьте номер телефона:",
+            text="Платёжная система просит номер и почту, чтобы спокойно завершить покупку и "
+                 "отправить подтверждение.\n\nЕсли с оплатой есть трудности, просто напиши "
+                 'нам в разделе "📝 Обратная связь" и мы поможем тебе разобраться.',
             reply_markup=keyboard,
         )
         return False

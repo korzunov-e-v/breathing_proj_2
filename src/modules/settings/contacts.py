@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData, UserState
@@ -41,7 +41,12 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = result.scalar_one()
         user.email = email
         await db.commit()
-    user_ctx.state = UserState.IDL
+    user_ctx.state = UserState.IDLE
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🌌 Продолжить", callback_data="subscription")],
+        ]
+    )
     await update.message.reply_text(
-        "Email сохранён. Теперь можно продолжить покупку."
+        "Email сохранён. Теперь можно продолжить.", reply_markup=keyboard
     )

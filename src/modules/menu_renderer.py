@@ -207,7 +207,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📝 Обратная связь", callback_data="feedback")],
             [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if await _get_user_current_day(
                 update.effective_user.id
-            ) >= 3 else [],
+            ) >= 2 else [],
             [InlineKeyboardButton("⚙️ Ритм и настройки (время, напоминания, выборы)", callback_data="settings")],
         ]
     )
