@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.context import UserContextData
+from src.context import UserContextData, UserState
 from src.db.database import AsyncSessionLocal
 from src.db.models import Practice, PracticeLog, User
 from src.log import log_interaction
@@ -316,14 +316,17 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 • после напряжённого разговора
 • когда хочется снова почувствовать ритм
 
+И в «Дыхании дня» мы оставили ещё одну практику —
+маленькую встречу с дыханием,
+которая откроется вместе с полной версией.
+
 Так дыхание становится не редким моментом, а тихой частью дня.
                 """
                 buttons = [
                     {"text": "💳 Открыть полное пространство", "goto": "subscription_offer"},
-                    {"text": "🌌 В моё пространство", "goto": "menu"}
+                    {"text": "🌌 В моёёё пространство", "goto": "practice_offer_feedback"}
                 ]
             else:
-                # ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - показываем практику
                 text = f"""
 🧘 *Дыхание дня {user.current_day}*
 
@@ -345,6 +348,32 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.edit_message_text(error_text)
             else:
                 await context.bot.send_message(chat_id, error_text)
+
+
+async def show_practice_offer_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = query.message.chat.id if query and query.message else update.effective_chat.id
+    user_data: UserContextData = context.user_data
+    user_data.state = UserState.FEEDBACK
+    text = (
+        "Ничего страшного, что сейчас не время для следующего шага.\n"
+        "Ты уже попробовал, почувствовал и отметил для себя это пространство.\n"
+        "Продолжай пользоваться тем, что уже открыто: дыханием, тишиной, маленькими касаниями.\n"
+        "Решение идти глубже не должно спешить.\n"
+        "Когда почувствуешь внутреннее “да” — дверь к полной версии всё так же будет рядом\n"
+        "Пожалуйста напиши пару строк, что для тебя было ценным, а чего не хватило.\n"
+        "Это поможет нам сделать это пространство мягче и точнее для тебя и других"
+    )
+    buttons = [
+        {"text": "🌌 В моё пространство", "goto": "menu"}
+    ]
+    await replace_menu_message(
+        chat_id=chat_id,
+        context=context,
+        text=text,
+        buttons=buttons,
+        media_files=[]
+    )
 
 
 async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE):

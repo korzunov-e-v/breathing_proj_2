@@ -67,6 +67,7 @@ async def _notify_successful_payment(application, session, payment):
     text = (
         "✨ Оплата подтверждена\n\n"
         f"<b>{product_name}</b>\n"
+        f"Спасибо тебе за доверие. 🌿\n"
         f"Стоимость: {amount_text}\n\n"
         "Материалы отправляю в этом чате."
     )

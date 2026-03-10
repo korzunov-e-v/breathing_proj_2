@@ -36,8 +36,14 @@ from src.modules.onboarding.onboarding import (
     setting_timezone
 )
 from src.modules.practice.mood import ask_mood_after_practice, handle_mood_selection
-from src.modules.practice.pract import show_daily_practice, show_practice_again, handle_practice_completion, \
-    handle_restart_practices, handle_repeat_practice_selection
+from src.modules.practice.pract import (
+    show_daily_practice,
+    show_practice_again,
+    handle_practice_completion,
+    handle_restart_practices,
+    handle_repeat_practice_selection,
+    show_practice_offer_feedback,
+)
 from src.modules.practice.rate import handle_comment_skip
 from src.modules.reminders.handlers import remind_later_handler, skip_today_handler
 from src.modules.settings.notifications import pause_notifications_handler
@@ -78,6 +84,7 @@ EXACT_ROUTES: dict[str, Handler] = {
 
     # практика
     "practice_complete": handle_practice_completion,
+    "practice_offer_feedback": show_practice_offer_feedback,
     "restart_practices": handle_restart_practices,
     "ask_mood_after": ask_mood_after_practice,
 
