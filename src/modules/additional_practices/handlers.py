@@ -22,8 +22,8 @@ def _tok(i: int) -> str:
     return str(i)
 
 
-def _resolve_video_caption(video: Video) -> str | None:
-    raw = getattr(video, "caption", None) or getattr(video, "title", None)
+def _resolve_text_caption(text: TextItem) -> str | None:
+    raw = getattr(text, "caption", None) or getattr(text, "text", None)
     return raw.strip() if raw else None
 
 
@@ -191,20 +191,20 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
     has_any_premium = any(_is_premium(x) for x in (videos + audios + texts))
     has_any_free = any(not _is_premium(x) for x in (videos + audios + texts))
 
-    premium_video_caption: str | None = None
-    if videos:
-        for video in videos:
-            if not _is_premium(video):
+    premium_text_caption: str | None = None
+    if texts:
+        for text in texts:
+            if not _is_premium(text):
                 continue
-            premium_video_caption = _resolve_video_caption(video)
-            if premium_video_caption:
+            premium_text_caption = _resolve_text_caption(text)
+            if premium_text_caption:
                 break
 
     # Всё премиум и доступа нет — блокируем
     if (videos or audios or texts) and (not has_full_access) and (not has_any_free):
         premium_text_parts = ["*🧘 Премиум контент*"]
-        if premium_video_caption:
-            premium_text_parts.append(escape(premium_video_caption))
+        if premium_text_caption:
+            premium_text_parts.append(escape(premium_text_caption))
         premium_text_parts.append("🔒 Эта практика доступна только после покупки.")
         premium_text = "\n\n".join(premium_text_parts)
         await replace_menu_message(

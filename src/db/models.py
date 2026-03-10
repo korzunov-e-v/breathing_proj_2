@@ -198,7 +198,6 @@ class Video(Base):
     category_2 = Column(String(500))
     section = Column(String(500))
     video_id = Column(String(255))
-    caption = Column(String(500))
     premium = Column(Boolean, default=False)
 
     def __repr__(self):
@@ -228,6 +227,7 @@ class TextItem(Base):
 
     id = Column(Integer, primary_key=True)
     text = Column(String(500))
+    caption = Column(String(500))
     category_1 = Column(String(500))
     category_2 = Column(String(500))
     section = Column(String(500))
