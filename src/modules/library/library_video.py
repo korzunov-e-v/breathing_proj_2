@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from src.db.database import AsyncSessionLocal
 from src.db.models import Video, User
 from src.modules.acquiring.access import AccessService
+from src.modules.library.constants import is_charges_topic
 from src.modules.menu_renderer import replace_menu_message
 
 
@@ -160,8 +161,15 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         video_title = getattr(video, "title", None) or f"Видео {video.id}"
         category = getattr(video, "category", None)
-        category_display = category or "Видео"
-        category_callback = f"video_category_{category}" if category else "library_videos"
+        primary_category = video.category_1 or category
+        category_display = primary_category or "Видео"
+        category_callback = f"video_category_{primary_category}" if primary_category else "library_videos"
+
+        donation_buttons = []
+        if is_charges_topic(video.category_1, video.category_2, primary_category):
+            donation_buttons.append(
+                [InlineKeyboardButton("💛 Поддержать донатом", callback_data=f"donate_video_{video.id}")]
+            )
 
         if video.premium and not has_access:
             await replace_menu_message(
@@ -183,7 +191,7 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if description:
             text += f"\n\n{description}"
 
-        buttons = [
+        buttons = donation_buttons + [
             [InlineKeyboardButton("🔙 Назад к видео", callback_data=category_callback)]
         ]
 

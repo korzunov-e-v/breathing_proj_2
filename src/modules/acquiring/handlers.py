@@ -25,6 +25,7 @@ from src.modules.acquiring.service import (
 from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_menu_message
 from src.modules.settings.profile_utils import ensure_user_profile
+from src.modules.library.constants import is_charges_topic
 
 SECTION = "additional_practices"
 UD_AP_CAT2 = "ap_cat2_map"
@@ -38,6 +39,9 @@ ENTITLEMENT_LABELS = {
     EntitlementType.text_access: "Доступ к текстам",
     EntitlementType.additional_practice_access: "Дополнительные практики",
 }
+
+
+DONATION_AMOUNTS_RUB = (100, 300, 500, 1000)
 
 
 async def buy_additional_practice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -372,6 +376,151 @@ async def buy_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def donate_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    video_id = int(query.data.replace("donate_video_", "", 1))
+    async with AsyncSessionLocal() as db:
+        video_result = await db.execute(select(Video).where(Video.id == video_id))
+        video = video_result.scalars().first()
+
+        if not video:
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text="Видео не найдено.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        if not is_charges_topic(video.category_1, video.category_2, getattr(video, "category", None)):
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text="Донаты доступны только для темы «зарядки и пробуждения».",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        title = video.title or f"Зарядка {video.id}"
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    f"{amount} ₽",
+                    callback_data=f"donate_video_amount_{video.id}_{amount}",
+                )
+            ]
+            for amount in DONATION_AMOUNTS_RUB
+        ]
+        buttons.append([InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_{video.id}")])
+
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text=(
+                f"💛 *{title}*\n\n"
+                "Выберите сумму доната. Контент остаётся доступным даже без доната."
+            ),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            media_files=None,
+        )
+
+
+async def donate_video_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    payload = query.data.replace("donate_video_amount_", "", 1)
+    try:
+        video_id_str, amount_str = payload.split("_", 1)
+        video_id = int(video_id_str)
+        amount_value_rub = int(amount_str)
+    except (ValueError, IndexError):
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text="Не удалось определить сумму доната.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+            ),
+            media_files=None,
+        )
+        return
+
+    if amount_value_rub not in DONATION_AMOUNTS_RUB:
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text="Выбранная сумма недоступна.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+            ),
+            media_files=None,
+        )
+        return
+
+    amount_value = amount_value_rub * 100
+    async with AsyncSessionLocal() as db:
+        video_result = await db.execute(select(Video).where(Video.id == video_id))
+        video = video_result.scalars().first()
+
+        if not video or not is_charges_topic(video.category_1, video.category_2, getattr(video, "category", None)):
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text="Это видео не поддерживается донатами.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        user_result = await db.execute(
+            select(User).where(User.tg_id == update.effective_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            await replace_menu_message(
+                chat_id=update.effective_chat.id,
+                context=context,
+                text="Пользователь не найден в базе.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Назад", callback_data=f"video_{video.id}")]]
+                ),
+                media_files=None,
+            )
+            return
+
+        if not await ensure_user_profile(update, context, user):
+            return
+
+        product = await _get_or_create_donation_product(
+            db=db,
+            video=video,
+            amount_value=amount_value,
+        )
+
+        item_title = video.title or f"Зарядка {video.id}"
+        extra_description = (
+            f"Вы выбрали донат {amount_value_rub} ₽ за зарядку «{item_title}». Спасибо за поддержку!"
+        )
+
+        await _process_content_checkout(
+            update=update,
+            context=context,
+            db=db,
+            user=user,
+            product=product,
+            item_title=item_title,
+            back_callback=f"video_{video.id}",
+            extra_description=extra_description,
+        )
+
+
 async def buy_minipractice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     practice_id = int(query.data.replace("buy_minipractice_", "", 1))
@@ -561,6 +710,41 @@ async def _process_content_checkout(
         media_files=None,
     )
     return False
+
+
+async def _get_or_create_donation_product(
+    *,
+    db,
+    video: Video,
+    amount_value: int,
+) -> Product:
+    code = f"donation_video_{video.id}_{amount_value}"
+
+    result = await db.execute(select(Product).where(Product.code == code))
+    product = result.scalar_one_or_none()
+    if product:
+        return product
+
+    title = video.title or f"Зарядка {video.id}"
+    description = "Донат для поддержки «зарядки и пробуждения». Спасибо за энергичное начало дня."
+
+    product = Product(
+        code=code,
+        title=f"Донат: {title}",
+        description=description,
+        product_type=ProductType.donation,
+        price_value=amount_value,
+        currency="RUB",
+        is_active=True,
+        is_repeatable=True,
+        section=video.section or "library",
+        category_1=video.category_1,
+        category_2=video.category_2,
+        video_id=video.id,
+    )
+    db.add(product)
+    await db.flush()
+    return product
 
 
 async def show_subscription_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):

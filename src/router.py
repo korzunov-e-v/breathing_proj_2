@@ -11,6 +11,8 @@ from src.modules.acquiring.handlers import (
     buy_minipractice,
     buy_subscription,
     buy_video,
+    donate_video,
+    donate_video_amount,
     show_subscription_offer,
     show_subscription_status,
 )
@@ -112,6 +114,8 @@ PREFIX_ROUTES: list[tuple[str, Handler]] = [
     ("music_", play_music),
     ("video_category_", show_video_by_category),
     ("video_", show_video),
+    ("donate_video_amount_", donate_video_amount),
+    ("donate_video_", donate_video),
     ("buy_article_", buy_article),
     ("buy_music_", buy_music),
     ("buy_video_", buy_video),

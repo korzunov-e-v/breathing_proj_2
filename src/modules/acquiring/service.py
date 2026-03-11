@@ -154,6 +154,9 @@ class AcquiringService:
             await self.session.flush()
             return entitlement
 
+        if product.product_type == ProductType.donation:
+            return None
+
         if product.product_type == ProductType.bundle:
             for item in product.items:
                 await self._grant_entitlement_for_product_item(
@@ -331,6 +334,9 @@ class AcquiringService:
         if order.status != OrderStatus.paid:
             order.status = OrderStatus.paid
             order.paid_at = self._now()
+
+        if order.product.product_type == ProductType.donation:
+            return
 
         await self.grant_entitlement_once(order=order)
 

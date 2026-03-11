@@ -72,6 +72,9 @@ class AccessService:
         if not product.is_active:
             return False
 
+        if product.product_type == ProductType.donation:
+            return True
+
         if product.is_repeatable:
             return True
 

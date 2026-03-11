@@ -269,6 +269,7 @@ class ProductType(enum.Enum):
     text = "text"
     bundle = "bundle"
     additional_practice = "additional_practice"
+    donation = "donation"
 
 
 class ProductItemType(enum.Enum):
