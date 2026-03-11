@@ -17,6 +17,7 @@ from src.db.database import create_tables, AsyncSessionLocal
 from src.db.models import User
 from src.log import log_interaction, setup_logging
 from src.modules.acquiring.polling import poll_pending_payments
+from src.modules.acquiring.handlers import handle_custom_donation_text
 from src.modules.feedback.handlers import handle_feedback_message
 from src.modules.llm.chat import handle_chat_message
 from src.modules.menu_renderer import show_main_menu
@@ -71,6 +72,10 @@ def main():
     logging.info("🤖 Бот запущен и готов к работе!")
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_donation_text),
+        group=99,
+    )
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact), group=100)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email), group=101)
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.Document.ALL, receive_media))

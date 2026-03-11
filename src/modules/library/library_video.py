@@ -2,6 +2,7 @@ from sqlalchemy import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from src.context import UserContextData, UserState
 from src.db.database import AsyncSessionLocal
 from src.db.models import Video, User
 from src.modules.acquiring.access import AccessService
@@ -129,6 +130,9 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает выбранное видео (или блокирует премиум без подписки)"""
     query = update.callback_query
     await query.answer()
+    user_data: UserContextData = context.user_data
+    if user_data.state == UserState.WAITING_DONATION_AMOUNT:
+        user_data.clear_donation_state()
 
     video_id = int(query.data.replace("video_", "", 1))
 

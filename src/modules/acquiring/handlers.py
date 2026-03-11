@@ -1,9 +1,10 @@
 from html import escape
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.context import UserContextData
+from src.context import UserContextData, UserState
 from src.db.database import AsyncSessionLocal
 from src.db.models import (
     Article,
@@ -417,18 +418,71 @@ async def donate_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             for amount in DONATION_AMOUNTS_RUB
         ]
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "🎯 Ввести другую сумму",
+                    callback_data=f"donate_video_custom_{video.id}",
+                )
+            ]
+        )
         buttons.append([InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_{video.id}")])
 
+    await replace_menu_message(
+        chat_id=update.effective_chat.id,
+        context=context,
+        text=(
+            f"💛 *{title}*\n\n"
+            "Выберите сумму доната. Контент остаётся доступным даже без доната."
+        ),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        media_files=None,
+    )
+
+
+async def donate_video_custom(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    video_id = int(query.data.replace("donate_video_custom_", "", 1))
+    async with AsyncSessionLocal() as db:
+        video_result = await db.execute(select(Video).where(Video.id == video_id))
+        video = video_result.scalars().first()
+
+    if not video:
         await replace_menu_message(
             chat_id=update.effective_chat.id,
             context=context,
-            text=(
-                f"💛 *{title}*\n\n"
-                "Выберите сумму доната. Контент остаётся доступным даже без доната."
+            text="Видео не найдено.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
             ),
-            reply_markup=InlineKeyboardMarkup(buttons),
             media_files=None,
         )
+        return
+
+    if not is_charges_topic(video.category_1, video.category_2, getattr(video, "category", None)):
+        await replace_menu_message(
+            chat_id=update.effective_chat.id,
+            context=context,
+            text="Донаты доступны только для темы «зарядки и пробуждения».",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙 Назад", callback_data="library_videos")]]
+            ),
+            media_files=None,
+        )
+        return
+
+    video_title = video.title or f"Зарядка {video.id}"
+    user_data: UserContextData = context.user_data
+    user_data.state = UserState.WAITING_DONATION_AMOUNT
+    user_data.pending_donation_video_id = video.id
+    user_data.pending_donation_video_title = video_title
+
+    await _send_custom_donation_prompt(
+        update=update,
+        context=context,
+        video_title=video_title,
+        video_id=video.id,
+    )
 
 
 async def donate_video_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -462,12 +516,109 @@ async def donate_video_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    amount_value = amount_value_rub * 100
+    await _process_donation_checkout(
+        update=update,
+        context=context,
+        video_id=video_id,
+        amount_value_kopecks=amount_value_rub * 100,
+        amount_label=str(amount_value_rub),
+    )
+
+
+async def handle_custom_donation_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    if not message or not message.text:
+        return
+
+    user_data: UserContextData = context.user_data
+    if (
+        user_data.state != UserState.WAITING_DONATION_AMOUNT
+        or not user_data.pending_donation_video_id
+    ):
+        return
+
+    amount_text = message.text.strip()
+    try:
+        parsed_amount = Decimal(amount_text.replace(",", "."))
+    except InvalidOperation:
+        await _send_custom_donation_prompt(
+            update=update,
+            context=context,
+            video_title=user_data.pending_donation_video_title or "зарядка",
+            video_id=user_data.pending_donation_video_id,
+            error_text="Не удалось распознать сумму. Введите число в рублях.",
+        )
+        return
+
+    amount_value = parsed_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if amount_value < Decimal("1"):
+        await _send_custom_donation_prompt(
+            update=update,
+            context=context,
+            video_title=user_data.pending_donation_video_title or "зарядка",
+            video_id=user_data.pending_donation_video_id,
+            error_text="Минимальная сумма доната — 1 ₽.",
+        )
+        return
+
+    video_id = user_data.pending_donation_video_id
+    amount_value_kopecks = int(
+        (amount_value * 100).to_integral_value(rounding=ROUND_HALF_UP)
+    )
+    amount_label = _format_ruble_amount(amount_value)
+    user_data.clear_donation_state()
+
+    await _process_donation_checkout(
+        update=update,
+        context=context,
+        video_id=video_id,
+        amount_value_kopecks=amount_value_kopecks,
+        amount_label=amount_label,
+    )
+
+
+async def _send_custom_donation_prompt(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    video_title: str,
+    video_id: int,
+    error_text: str | None = None,
+) -> None:
+    parts = [f"💛 *{video_title}*"]
+    if error_text:
+        parts.append(error_text)
+    parts.append("Введите сумму доната в рублях. Контент остаётся доступным даже без доната.")
+    text = "\n\n".join(parts)
+
+    await replace_menu_message(
+        chat_id=update.effective_chat.id,
+        context=context,
+        text=text,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🔙 Назад к видео", callback_data=f"video_{video_id}")]]
+        ),
+        media_files=None,
+    )
+
+
+async def _process_donation_checkout(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    video_id: int,
+    amount_value_kopecks: int,
+    amount_label: str,
+) -> None:
     async with AsyncSessionLocal() as db:
         video_result = await db.execute(select(Video).where(Video.id == video_id))
         video = video_result.scalars().first()
 
-        if not video or not is_charges_topic(video.category_1, video.category_2, getattr(video, "category", None)):
+        if not video or not is_charges_topic(
+            video.category_1,
+            video.category_2,
+            getattr(video, "category", None),
+        ):
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
@@ -501,12 +652,12 @@ async def donate_video_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         product = await _get_or_create_donation_product(
             db=db,
             video=video,
-            amount_value=amount_value,
+            amount_value=amount_value_kopecks,
         )
 
         item_title = video.title or f"Зарядка {video.id}"
         extra_description = (
-            f"Вы выбрали донат {amount_value_rub} ₽ за зарядку «{item_title}». Спасибо за поддержку!"
+            f"Вы выбрали донат {amount_label} ₽ за зарядку «{item_title}». Спасибо за поддержку!"
         )
 
         await _process_content_checkout(
@@ -519,6 +670,11 @@ async def donate_video_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             back_callback=f"video_{video.id}",
             extra_description=extra_description,
         )
+
+
+def _format_ruble_amount(amount: Decimal) -> str:
+    normalized = amount.normalize()
+    return format(normalized, "f")
 
 
 async def buy_minipractice(update: Update, context: ContextTypes.DEFAULT_TYPE):

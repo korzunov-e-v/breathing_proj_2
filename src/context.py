@@ -16,6 +16,7 @@ class UserState(str, Enum):
     FEEDBACK = "FEEDBACK"
     WAITING_PHONE = "waiting_phone"
     WAITING_EMAIL = "waiting_email"
+    WAITING_DONATION_AMOUNT = "waiting_donation_amount"
 
 class PracticeData(BaseModel):
     """Nested model for practice-related data"""
@@ -36,12 +37,22 @@ class UserContextData(BaseModel):
     ai_chat_context: list = []
     last_chat_message_id: Optional[int] = None
     pending_purchase_product_code: Optional[str] = None
+    pending_donation_video_id: Optional[int] = None
+    pending_donation_video_title: Optional[str] = None
 
     def clear_practice_data(self) -> None:
         """Clear practice-related fields"""
         self.practice_data = PracticeData()
         self.state = UserState.IDLE
         self.ai_chat_context = []
+        self.pending_donation_video_id = None
+        self.pending_donation_video_title = None
+
+    def clear_donation_state(self) -> None:
+        """Reset donation-related context fields."""
+        self.state = UserState.IDLE
+        self.pending_donation_video_id = None
+        self.pending_donation_video_title = None
 
 
 context_types = ContextTypes(
