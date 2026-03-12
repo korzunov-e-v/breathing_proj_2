@@ -63,7 +63,7 @@ async def show_additional_practices(update: Update, context: ContextTypes.DEFAUL
     await replace_menu_message(
         chat_id=update.effective_chat.id,
         context=context,
-        text="🧘 Доп. практики\n\nВыберите категорию:",
+        text="🧘 Доп. практики\n\nВыбери категорию:",
         reply_markup=InlineKeyboardMarkup(buttons),
         media_files=None,
     )
@@ -117,7 +117,7 @@ async def show_additional_practices_subcategories(update: Update, context: Conte
     await replace_menu_message(
         chat_id=update.effective_chat.id,
         context=context,
-        text=f"🧘 {cat1}\n\nВыберите практику:",
+        text=f"🧘 {cat1}\n\nВыбери практику:",
         reply_markup=InlineKeyboardMarkup(buttons),
         media_files=None,
     )

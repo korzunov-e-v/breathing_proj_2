@@ -65,7 +65,7 @@ async def show_mini_practices_content(update: Update, context: ContextTypes.DEFA
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library")])
 
-        text = "🌬 Мини-практики\n\nВыберите практику:"
+        text = "🌬 Мини-практики\n\nВыбери практику:"
 
         await replace_menu_message(
             chat_id=update.effective_chat.id,

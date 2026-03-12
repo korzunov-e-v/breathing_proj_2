@@ -48,7 +48,7 @@ async def show_video_content(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await replace_menu_message(
             chat_id=update.effective_chat.id,
             context=context,
-            text="🎞 Киноплёнки\n\nВыберите категорию:",
+            text="🎞 Киноплёнки\n\nВыбери категорию:",
             reply_markup=InlineKeyboardMarkup(buttons),
             media_files=None,
         )
@@ -113,7 +113,7 @@ async def show_video_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_videos")])
 
-        text = f"🎞 {category}\n\nВыберите видео:"
+        text = f"🎞 {category}\n\nВыбери видео:"
         if has_locked_premium:
             text += "\n\n$ - видео доступны по подписке"
 

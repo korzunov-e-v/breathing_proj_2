@@ -23,7 +23,7 @@ async def pause_notifications_handler(update: Update, context: ContextTypes.DEFA
             await db.commit()
 
             await query.edit_message_text(
-                "🔕 Уведомления приостановлены. Вы можете возобновить их в любое время."
+                "🔕 Уведомления приостановлены. Ты можешь возобновить их в любое время."
             )
 
 

@@ -43,12 +43,12 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if not practice_logs:
                 text = """
-    🌀 Дневник состояний
-    
-    Ты пока не выполнил ни одной практики.
-    
-    Вернись после практики дыхания, 
-    чтобы увидеть здесь свои изменения.
+🌀 Дневник состояний
+
+Ты пока не выполнил ни одной практики.
+
+Вернись после практики дыхания, 
+чтобы увидеть здесь свои изменения.
                 """
 
                 keyboard = InlineKeyboardMarkup(
@@ -135,7 +135,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logger.error(f"Ошибка при генерации анализа LLM: {e}")
                     text += "\nАнализ:\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
             else:
-                text += "\nАнализ:\n(Выполните 5+ практик, чтобы получить анализ.)\n"
+                text += "\nАнализ:\n(Выполни 1+ практик, чтобы получить анализ.)\n"
 
             # Кнопки
             keyboard = InlineKeyboardMarkup(

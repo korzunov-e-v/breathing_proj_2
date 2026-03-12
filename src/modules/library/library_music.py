@@ -31,7 +31,7 @@ async def show_music_content(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await replace_screen(
             chat_id=update.effective_chat.id,
             context=context,
-            text="🎶 Звуки и вибрации\n\nВыберите категорию:",
+            text="🎶 Звуки и вибрации\n\nВыбери категорию:",
             reply_markup=InlineKeyboardMarkup(buttons),
             media=None,
         )
@@ -76,7 +76,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
         buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="library_sounds")])
 
-        text = f"🎶 {category}\n\nВыберите трек:"
+        text = f"🎶 {category}\n\nВыбери трек:"
         if has_locked_premium:
             text += "\n\n$ - треки доступны по подписке"
 

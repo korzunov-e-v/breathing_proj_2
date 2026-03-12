@@ -29,7 +29,7 @@ async def show_library_content(update: Update, context: ContextTypes.DEFAULT_TYP
         await replace_screen(
             chat_id=update.effective_chat.id,
             context=context,
-            text="📚 Выберите категорию:",
+            text="📚 Выбери категорию:",
             reply_markup=InlineKeyboardMarkup(buttons),
             media=None,
         )

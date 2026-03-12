@@ -433,7 +433,7 @@ async def donate_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context=context,
         text=(
             f"💛 *{title}*\n\n"
-            "Выберите сумму доната. Контент остаётся доступным даже без доната."
+            "Выбери сумму доната. Контент остаётся доступным даже без доната."
         ),
         reply_markup=InlineKeyboardMarkup(buttons),
         media_files=None,
@@ -657,7 +657,7 @@ async def _process_donation_checkout(
 
         item_title = video.title or f"Зарядка {video.id}"
         extra_description = (
-            f"Вы выбрали донат {amount_label} ₽ за зарядку «{item_title}». Спасибо за поддержку!"
+            f"Ты выбрал донат {amount_label} ₽ за зарядку «{item_title}». Спасибо за поддержку!"
         )
 
         await _process_content_checkout(

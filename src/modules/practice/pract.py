@@ -188,7 +188,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 # Добавляем благодарность за фидбек
                 if comment:
                     if ai_reply:
-                        completion_text += "\n\n🧘 Ответ на ваш комментарий:\n"
+                        completion_text += "\n\n🧘 Ответ на твой комментарий:\n"
                         completion_text += ai_reply
                     else:
                         # фоллбек, если OpenRouter не отработал/не успел/упал
@@ -293,7 +293,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 # Если практики нет - пользователь прошел все
                 text = ("🎉 *Поздравляем!*\n"
                         "\n"
-                        "Вы завершили все доступные практики.\n"
+                        "Ты завершил все доступные практики.\n"
                         "\n"
                         "Что дальше?")
                 buttons = [
@@ -415,7 +415,7 @@ async def show_practice_again(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 Выбери то, к чему хочется вернуться сейчас.
 
-У вас пока нет пройденных дней для повторения.
+У тебя пока нет пройденных дней для повторения.
 """
             buttons = [
                 {"text": "🧘 Первый вдох", "goto": "daily_practice"},
@@ -530,7 +530,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
             # Спрашиваем настроение перед практикой
             mood_keyboard = await get_moods_keyboard()
             await query.edit_message_text(
-                f"🔄 *Повторение практики дня {practice.day_number}*\n\nКакое у вас сейчас настроение?",
+                f"🔄 *Повторение практики дня {practice.day_number}*\n\nКакое у тебя сейчас настроение?",
                 reply_markup=mood_keyboard,
                 parse_mode='Markdown'
             )
