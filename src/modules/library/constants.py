@@ -1,4 +1,4 @@
-CHARGES_TOPIC_NAME: list[str] = ["🌅 Зарядка пробуждения", "1"]
+CHARGES_TOPIC_NAME: list[str] = ["🌅 Зарядка пробуждения", "🌊 Биоэнергетика	"]
 
 
 def is_charges_topic(*categories: str | None) -> bool:
