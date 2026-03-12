@@ -44,7 +44,7 @@ async def show_additional_practices(update: Update, context: ContextTypes.DEFAUL
         await replace_menu_message(
             chat_id=update.effective_chat.id,
             context=context,
-            text="🧘 Доп. практики\n\nПока нет доступных категорий.",
+            text="🔥 Практики\n\nПока нет доступных категорий.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="menu")]]),
             media_files=None,
         )

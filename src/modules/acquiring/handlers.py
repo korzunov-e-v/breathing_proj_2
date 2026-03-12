@@ -229,17 +229,19 @@ async def buy_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def buy_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    music_id = int(query.data.replace("buy_music_", "", 1))
+    data = query.data
+    music_identifier, _, context_payload = data.partition("|")
+    music_id = int(music_identifier.replace("buy_music_", "", 1))
     async with AsyncSessionLocal() as db:
         music_result = await db.execute(
             select(Music).where(Music.id == music_id)
         )
         music = music_result.scalars().first()
-        back_callback = (
-            f"music_category_{music.category}"
-            if music and music.category
-            else "library_sounds"
-        )
+        back_callback = "library_sounds"
+        if context_payload:
+            back_callback = f"music_subcategory_{context_payload}"
+        elif music and music.category_1:
+            back_callback = f"music_category_{music.category_1}"
 
         if not music:
             await replace_menu_message(
