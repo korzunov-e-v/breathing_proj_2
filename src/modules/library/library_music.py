@@ -109,7 +109,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
 
         buttons = []
         for subcategory in subcategories:
-            display = subcategory or "Без подкатегории"
+            display = subcategory or "тык"
             context_payload = _encode_music_context(context, category, subcategory)
             buttons.append([
                 InlineKeyboardButton(
