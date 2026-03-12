@@ -179,7 +179,7 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
-                text=f"*🎞 {category_display}*\n\n🔒 Это видео доступно только после покупки.",
+                text=f"🎞 {category_display}\n\n🔒 Это видео доступно только после покупки.",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("✨ Купить видео", callback_data=f"buy_video_{video.id}")],
@@ -191,7 +191,7 @@ async def show_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         description = getattr(video, "description", None) or ""
-        text = f"*🎞 {video_title}*"
+        text = f"🎞 {video_title}"
         if description:
             text += f"\n\n{description}"
 

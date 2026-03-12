@@ -224,9 +224,9 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=chat_id,
         context=context,
         text="""
-*🌿 Моё пространство*
+🌿 Моё пространство
 
-**Здесь нет спешки и задач.**  
+Здесь нет спешки и задач.
 Здесь ты возвращаешься к себе —  
 через дыхание, внимание и тишину.
 

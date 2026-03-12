@@ -98,7 +98,7 @@ async def show_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if article.premium and not has_access:
                 back_callback = f"article_category_{article.category}" if article.category else "library_notes"
-                text = f"*{article.title}*\n\n🔒 Эта статья доступна только после покупки."
+                text = f"{article.title}\n\n🔒 Эта статья доступна только после покупки."
                 markup = InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("✨ Купить статью", callback_data=f"buy_article_{article.id}")],
@@ -106,7 +106,7 @@ async def show_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ]
                 )
             else:
-                text = f"*{article.title}*\n\n{article.text}"
+                text = f"{article.title}\n\n{article.text}"
                 back_callback = f"article_category_{article.category}" if article.category else "library_notes"
                 markup = InlineKeyboardMarkup(
                     [

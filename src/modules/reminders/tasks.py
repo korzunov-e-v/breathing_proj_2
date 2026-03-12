@@ -146,7 +146,7 @@ class TaskScheduler:
                 if not phrase and phrases:
                     phrase = phrases[0]
 
-                phrase_text = f"\n\n💭 *Фраза дня:*\n{phrase.text}" if phrase else ""
+                phrase_text = f"\n\n💭 Фраза дня:\n{phrase.text}" if phrase else ""
 
 
             text = f"""
@@ -155,7 +155,7 @@ class TaskScheduler:
 🌿 Просто вернись к дыханию.
 
 Сегодня {day_text} вашего дыхательного путешествия.
-Время дыхания: *{user.practice_time}*
+Время дыхания: {user.practice_time}
 
 {phrase_text}
 

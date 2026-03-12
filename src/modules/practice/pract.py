@@ -291,7 +291,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             if not practice:
                 # Если практики нет - пользователь прошел все
-                text = ("🎉 *Поздравляем!*\n"
+                text = ("🎉 Поздравляем!\n"
                         "\n"
                         "Ты завершил все доступные практики.\n"
                         "\n"
@@ -305,7 +305,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Проверяем доступ к премиум контенту
             elif practice.premium and not await is_user_subscribed(user_id):
                 text = f"""
-*✨ Открыть полное пространство Кабира*
+✨ Открыть полное пространство Кабира
 
 Базовые дыхания — это старт.
 
@@ -326,7 +326,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 ]
             else:
                 text = f"""
-🧘 *Дыхание дня {user.current_day}*
+🧘 Дыхание дня {user.current_day}
 
 Состояние этого мгновения...
                 """
@@ -355,10 +355,10 @@ async def show_practice_offer_feedback(update: Update, context: ContextTypes.DEF
     user_data.state = UserState.FEEDBACK
     text = (
         "Ничего страшного, что сейчас не время для следующего шага.\n"
-        "Ты уже попробовал, почувствовал и отметил для себя это пространство.\n"
-        "Продолжай пользоваться тем, что уже открыто: дыханием, тишиной, маленькими касаниями.\n"
-        "Решение идти глубже не должно спешить.\n"
-        "Когда почувствуешь внутреннее “да” — дверь к полной версии всё так же будет рядом\n"
+        "Ты уже попробовал, почувствовал и отметил для себя это пространство.\n\n"
+        "Продолжай пользоваться тем, что уже открыто: дыханием, тишиной, маленькими касаниями.\n\n"
+        "Решение идти глубже не должно спешить.\n\n"
+        "Когда почувствуешь внутреннее “да” — дверь к полной версии всё так же будет рядом\n\n"
         "Пожалуйста напиши пару строк, что для тебя было ценным, а чего не хватило.\n"
         "Это поможет нам сделать это пространство мягче и точнее для тебя и других"
     )
@@ -518,7 +518,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
             # Проверяем доступ к премиум контенту
             if practice.premium and not await is_user_subscribed(user_id):
                 await query.edit_message_text(
-                    f"🔒 *Премиум контент*\n\nПрактика дня {practice.day_number} доступна только для подписчиков.",
+                    f"🔒 Премиум контент\n\nПрактика дня {practice.day_number} доступна только для подписчиков.",
                     parse_mode='Markdown'
                 )
                 return
@@ -530,7 +530,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
             # Спрашиваем настроение перед практикой
             mood_keyboard = await get_moods_keyboard()
             await query.edit_message_text(
-                f"🔄 *Повторение практики дня {practice.day_number}*\n\nКакое у тебя сейчас настроение?",
+                f"🔄 Повторение практики дня {practice.day_number}\n\nКакое у тебя сейчас настроение?",
                 reply_markup=mood_keyboard,
                 parse_mode='Markdown'
             )
@@ -562,7 +562,7 @@ async def handle_restart_practices(update: Update, context: ContextTypes.DEFAULT
                 db.commit()
 
                 await query.edit_message_text(
-                    "🔄 *Прогресс сброшен!*\n\nНачинаем новое 7-дневное путешествие.\n\nВаша история пройденных практик сохранена и доступна для повторения.",
+                    "🔄 Прогресс сброшен!\n\nНачинаем новое 7-дневное путешествие.\n\nВаша история пройденных практик сохранена и доступна для повторения.",
                     parse_mode='Markdown'
                 )
                 await show_daily_practice(update, context)

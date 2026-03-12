@@ -17,7 +17,7 @@ async def show_library_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data.clear_practice_data()
 
     text = """
-*📚 Заметки Кабира*
+📚 Заметки Кабира
 
 Здесь собраны следы пути.  
 Слова, звуки и образы —  

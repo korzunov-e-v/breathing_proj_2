@@ -102,7 +102,7 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=update.effective_chat.id,
                 context=context,
                 text=(
-                    f"*🌬 Практика {practice.id} - {practice.title}*\n\n"
+                    f"🌬 Практика {practice.id} - {practice.title}\n\n"
                     "🔒 Мини-практики открываются после покупки lifetime-подписки."
                 ),
                 reply_markup=InlineKeyboardMarkup(
@@ -116,7 +116,7 @@ async def show_mini_practice(update: Update, context: ContextTypes.DEFAULT_TYPE)
             return
         # Показываем практику с аудио
             # Показываем практику с аудио
-        text = f"*🌬 Практика {practice.id} - {practice.title}*"
+        text = f"🌬 Практика {practice.id} - {practice.title}"
 
         buttons = [
             [InlineKeyboardButton("🔙 Назад к практикам", callback_data="library_practices")]

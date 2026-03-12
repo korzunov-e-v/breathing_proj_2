@@ -202,7 +202,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
 
     # Всё премиум и доступа нет — блокируем
     if (videos or audios or texts) and (not has_full_access) and (not has_any_free):
-        premium_text_parts = ["*🧘 Премиум контент*"]
+        premium_text_parts = ["🧘 Премиум контент"]
         if premium_text_caption:
             premium_text_parts.append(escape(premium_text_caption))
         premium_text_parts.append("🔒 Эта практика доступна только после покупки.")
@@ -265,7 +265,7 @@ async def show_additional_practice_content(update: Update, context: ContextTypes
         if body:
             text_parts.append(body)
 
-    header = f"🧘 {cat1}\n\n*{cat2}*"
+    header = f"🧘 {cat1}\n\n{cat2}"
     full_text = header + (("\n\n" + "\n\n— — —\n\n".join(text_parts)) if text_parts else "")
 
     if not videos_to_send and not audios_to_send and not text_parts:

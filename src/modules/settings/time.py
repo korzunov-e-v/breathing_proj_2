@@ -64,7 +64,7 @@ async def handle_change_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
             context=context,
             text="""
 Я хочу поймать твой ритм — но сейчас время пришло в другом виде.  
-Напиши, пожалуйста, в формате **ЧЧ:ММ** 
+Напиши, пожалуйста, в формате ЧЧ:ММ 
             """,
             buttons=[],
             media_files=[],
@@ -99,7 +99,7 @@ async def handle_time_selection(update: Update, _context: ContextTypes.DEFAULT_T
 
             # Показываем главное меню из YAML после настройки
             await query.edit_message_text(
-                f"*Отлично!* 🎉\n\nВаше время практик установлено на *{time_str}*.\n\n"
+                f"Отлично! 🎉\n\nВаше время практик установлено на {time_str}.\n\n"
                 f"Теперь я буду напоминать вам о практике в это время каждый день.\n\n"
                 f"Когда будете готовы начать - нажмите кнопку ниже:",
                 parse_mode='Markdown',
@@ -145,12 +145,12 @@ async def handle_timezone_selection(update: Update, context: ContextTypes.DEFAUL
             else:
 
                 text = '''
-    У каждого свой ритм — и я предлагаю тебе выбрать свой.  
-    Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
-    
-    ✦ Просто напиши мне подходящее для себя время.
-    
-    _Формат: ЧЧ:ММ_ 
+У каждого свой ритм — и я предлагаю тебе выбрать свой.  
+Это может быть ☀️ утро, 🌤 пауза днём или 🌙 тихий вечер.
+
+✦ Просто напиши мне подходящее для себя время.
+
+Формат: ЧЧ:ММ
                 '''
 
                 await replace_menu_message(

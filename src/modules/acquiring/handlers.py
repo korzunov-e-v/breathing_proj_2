@@ -130,8 +130,8 @@ async def buy_additional_practice(update: Update, context: ContextTypes.DEFAULT_
                 chat_id=update.effective_chat.id,
                 context=context,
                 text=(
-                    f"🧘 *{cat1}*\n\n"
-                    f"*{cat2}*\n\n"
+                    f"🧘 {cat1}\n\n"
+                    f"{cat2}\n\n"
                     f"Стоимость: {product.price_value / 100:.2f} ₽\n\n"
                     f"[Перейти к оплате]({checkout.confirmation_url})"
                 ),
@@ -432,7 +432,7 @@ async def donate_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         context=context,
         text=(
-            f"💛 *{title}*\n\n"
+            f"💛 {title}\n\n"
             "Выбери сумму доната. Контент остаётся доступным даже без доната."
         ),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -585,7 +585,7 @@ async def _send_custom_donation_prompt(
     video_id: int,
     error_text: str | None = None,
 ) -> None:
-    parts = [f"💛 *{video_title}*"]
+    parts = [f"💛 {video_title}"]
     if error_text:
         parts.append(error_text)
     parts.append("Введите сумму доната в рублях. Контент остаётся доступным даже без доната.")
@@ -738,7 +738,7 @@ async def buy_minipractice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=update.effective_chat.id,
                 context=context,
                 text=(
-                    "*🌬 Мини-практики*\n\nМини-практики доступны после покупки lifetime-подписки.\n"
+                    "🌬 Мини-практики\n\nМини-практики доступны после покупки lifetime-подписки.\n"
                     "Открой полный доступ, чтобы продолжить."
                 ),
                 reply_markup=InlineKeyboardMarkup(
@@ -930,7 +930,7 @@ async def show_subscription_offer(update: Update, context: ContextTypes.DEFAULT_
     )
     buttons = [
         {"text": "✨ Купить доступ", "goto": "buy_subscription"},
-        {"text": "🔙 Назад", "goto": "menu"},
+        {"text": "🔙 Назад", "goto": "practice_offer_feedback"},
     ]
     await replace_menu_message(
         chat_id=chat_id,

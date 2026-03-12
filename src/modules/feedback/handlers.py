@@ -12,8 +12,8 @@ async def show_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data.state = UserState.FEEDBACK
 
     text = """
-Напишите сюда одним сообщением.
-Чтобы мы ответили быстрее — начните с цифры:
+Напиши сюда одним сообщением.
+Чтобы мы ответили быстрее — начни с цифры:
 
 1 — вопрос по практикам / как пользоваться
 2 — оплата / доступ
@@ -21,13 +21,13 @@ async def show_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 4 — хочу поддержку (1:1 / группа)
 5 — сотрудничество
 
-Добавьте: что произошло и когда.
+Добавь: что произошло и когда.
 Если это про оплату — время и скрин.
 
 Чтобы выйти — «🌌 В моё пространство»
     """
 
-    keyboard = [[InlineKeyboardButton("⬅️ В меню", callback_data="menu")]]
+    keyboard = [[InlineKeyboardButton("🌌 В моё пространство", callback_data="menu")]]
     await replace_menu_message(
         chat_id=update.effective_chat.id,
         context=context,

@@ -120,7 +120,7 @@ async def change_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ✦ Просто напиши мне подходящее для себя время.
 
-_Формат: ЧЧ:ММ_ 
+Формат: ЧЧ:ММ 
     '''
 
     await replace_menu_message(

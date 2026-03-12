@@ -67,7 +67,7 @@ async def ask_mood_after_practice(update: Update, _context: ContextTypes.DEFAULT
     mood_keyboard = await get_moods_keyboard()
     await query.edit_message_text(
         text = """
-🧘 **Точка тишины**
+🧘 Точка тишины
 
 Состояние этого мгновения...
         """,

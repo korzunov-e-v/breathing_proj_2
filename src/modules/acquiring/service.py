@@ -98,30 +98,33 @@ class AcquiringService:
         if not payment:
             raise PaymentNotFoundError(f"Payment with id={payment_id} not found")
 
-        gateway_payment = get_yookassa_payment(payment.provider_payment_id)
+        try:
+            gateway_payment = get_yookassa_payment(payment.provider_payment_id)
+            payment.status = PaymentStatus(gateway_payment.status)
+            payment.paid = gateway_payment.paid
+            payment.refundable = gateway_payment.refundable
+            payment.test = gateway_payment.test
+            payment.payment_method_type = gateway_payment.payment_method_type
+            payment.payment_method_id = gateway_payment.payment_method_id
+            payment.raw_response = json.dumps(gateway_payment.raw_response, ensure_ascii=False)
+            payment.confirmation_url = gateway_payment.confirmation_url
+            payment.last_checked_at = self._now()
+            payment.status_synced_at = self._now()
+            payment.check_attempts += 1
+            payment.status_description = gateway_payment.status
 
-        payment.status = PaymentStatus(gateway_payment.status)
-        payment.paid = gateway_payment.paid
-        payment.refundable = gateway_payment.refundable
-        payment.test = gateway_payment.test
-        payment.payment_method_type = gateway_payment.payment_method_type
-        payment.payment_method_id = gateway_payment.payment_method_id
-        payment.raw_response = json.dumps(gateway_payment.raw_response, ensure_ascii=False)
-        payment.confirmation_url = gateway_payment.confirmation_url
-        payment.last_checked_at = self._now()
-        payment.status_synced_at = self._now()
-        payment.check_attempts += 1
-        payment.status_description = gateway_payment.status
+            if payment.status in {PaymentStatus.succeeded, PaymentStatus.canceled}:
+                payment.finalized_at = self._now()
 
-        if payment.status in {PaymentStatus.succeeded, PaymentStatus.canceled}:
-            payment.finalized_at = self._now()
+            if payment.status == PaymentStatus.succeeded:
+                payment.confirmed_at = self._now()
+                await self._finalize_successful_payment(payment)
 
-        if payment.status == PaymentStatus.succeeded:
-            payment.confirmed_at = self._now()
-            await self._finalize_successful_payment(payment)
+            elif payment.status == PaymentStatus.canceled:
+                payment.order.status = OrderStatus.canceled
 
-        elif payment.status == PaymentStatus.canceled:
-            payment.order.status = OrderStatus.canceled
+        except:
+            payment.status = PaymentStatus.canceled
 
         await self.session.flush()
         await self.session.commit()

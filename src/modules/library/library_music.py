@@ -118,7 +118,7 @@ async def play_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Определяем доступность трека
         if music.premium and not has_access:
-            text = f"*🎶 {music.category or 'Музыка'}*\n\n🔒 Этот трек доступен только после покупки."
+            text = f"🎶 {music.category or 'Музыка'}\n\n🔒 Этот трек доступен только после покупки."
             buttons = [
                 [InlineKeyboardButton("✨ Купить трек", callback_data=f"buy_music_{music.id}")],
                 [InlineKeyboardButton("🔙 Назад к трекам", callback_data=category_callback)]
