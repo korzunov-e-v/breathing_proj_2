@@ -202,7 +202,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔄 Вернуться к дыханию", callback_data="practice_again")],
             [InlineKeyboardButton("📚 Заметки Кабира", callback_data="library")],
             [InlineKeyboardButton("🌀 Дневник состояний", callback_data="analytics")],
-            [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
+            # [InlineKeyboardButton("💬 Разговор с Кабиром", callback_data="ai_chat")],
             [InlineKeyboardButton("🔥 Практики", callback_data="additional_practices")],
             [InlineKeyboardButton("📝 Обратная связь", callback_data="feedback")],
             [InlineKeyboardButton("✨ Глубже в путешествие", callback_data="subscription")] if await _get_user_current_day(

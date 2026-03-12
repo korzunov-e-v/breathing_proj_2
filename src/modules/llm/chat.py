@@ -14,12 +14,14 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserContextData = context.user_data
     user_data.state = UserState.CHAT
     user_data.last_chat_message_id = None
+    keyboard = [[InlineKeyboardButton("Покинуть чат", callback_data="stop_chat")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await replace_menu_message(
         chat_id=query.message.chat.id,
         context=context,
         text="Это чат с ИИ версией Кабира",
-        buttons=[],
+        reply_markup=reply_markup,
         media_files=[],
     )
 
