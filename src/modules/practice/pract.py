@@ -496,8 +496,15 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
     await query.answer()
     user_data: UserContextData = context.user_data
 
-    practice_id = query.data.replace("repeat_practice_", "")
-    await log_interaction(update, "REPEAT_PRACTICE_SELECTED", f"PracticeID: {practice_id}")
+    raw_practice_id = query.data.replace("repeat_practice_", "")
+    await log_interaction(update, "REPEAT_PRACTICE_SELECTED", f"PracticeID: {raw_practice_id}")
+
+    try:
+        practice_id = int(raw_practice_id)
+    except ValueError:
+        logging.error("Повторная практика: некорректный идентификатор %s", raw_practice_id)
+        await query.edit_message_text("Неверный идентификатор практики")
+        return
 
     async with AsyncSessionLocal() as db:
         try:

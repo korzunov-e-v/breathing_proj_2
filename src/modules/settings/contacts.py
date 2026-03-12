@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
 from src.context import UserContextData, UserState
@@ -25,9 +25,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await db.commit()
     if user_ctx.state == UserState.WAITING_PHONE:
         user_ctx.state = UserState.WAITING_EMAIL
-        await update.message.reply_text(
-            "Телефон сохранён. Теперь введите email."
-        )
+    await update.message.reply_text(
+        "Телефон сохранён. Теперь введите email.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_ctx: UserContextData = context.user_data
