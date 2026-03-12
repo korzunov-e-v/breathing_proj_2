@@ -172,7 +172,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
                 await db.commit()
 
                 # Формируем текст завершения
-                completion_text = "Спасибо."
+                completion_text = "🙏"
                 if practice and practice.outro_text:
                     completion_text = f"""
 ⟡ Между 
@@ -309,7 +309,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 Базовые дыхания — это старт.
 
-Полная версия — это шесть практик, к которым можно возвращаться в разные моменты дня:
+Полная версия — это семь практик, к которым можно возвращаться в разные моменты дня:
 
 • когда шумно в голове
 • перед сном
@@ -322,7 +322,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
                 """
                 buttons = [
                     {"text": "💳 Открыть полное пространство", "goto": "subscription_offer"},
-                    {"text": "🌌 В моёёё пространство", "goto": "practice_offer_feedback"}
+                    {"text": "🌌 В моё пространство", "goto": "practice_offer_feedback"}
                 ]
             else:
                 text = f"""
