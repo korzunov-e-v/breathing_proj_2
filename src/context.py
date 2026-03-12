@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel
+from typing import Optional, Dict
+from pydantic import BaseModel, Field
 
 from telegram.ext import ContextTypes
 
@@ -39,6 +39,7 @@ class UserContextData(BaseModel):
     pending_purchase_product_code: Optional[str] = None
     pending_donation_video_id: Optional[int] = None
     pending_donation_video_title: Optional[str] = None
+    music_contexts: Dict[str, Dict[str, Optional[str]]] = Field(default_factory=dict)
 
     def clear_practice_data(self) -> None:
         """Clear practice-related fields"""

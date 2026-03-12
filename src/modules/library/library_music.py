@@ -1,5 +1,4 @@
-import base64
-import json
+from uuid import uuid4
 
 from sqlalchemy import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -11,23 +10,32 @@ from src.modules.acquiring.access import AccessService
 from src.modules.menu_renderer import replace_menu_message
 
 
-def _encode_music_context(category, subcategory):
-    payload = json.dumps({"cat": category, "sub": subcategory}, ensure_ascii=False)
-    encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
-    return encoded.rstrip("=")
+MUSIC_CONTEXT_LIMIT = 64
 
 
-def _decode_music_context(encoded_payload):
+def _music_context_store(context):
+    return context.user_data.music_contexts
+
+
+def _encode_music_context(context, category, subcategory):
+    store = _music_context_store(context)
+    context_id = uuid4().hex
+    store[context_id] = {"cat": category, "sub": subcategory}
+    excess = len(store) - MUSIC_CONTEXT_LIMIT
+    if excess > 0:
+        for key in list(store)[:excess]:
+            store.pop(key, None)
+    return context_id
+
+
+def _decode_music_context(context, encoded_payload):
     if not encoded_payload:
         return None, None
-    padding_len = (-len(encoded_payload)) % 4
-    encoded = encoded_payload + ("=" * padding_len)
-    try:
-        decoded = base64.urlsafe_b64decode(encoded.encode("ascii"))
-        payload = json.loads(decoded)
-    except (ValueError, TypeError):
+    store = _music_context_store(context)
+    data = store.get(encoded_payload)
+    if not data:
         return None, None
-    return payload.get("cat"), payload.get("sub")
+    return data.get("cat"), data.get("sub")
 
 
 async def show_music_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -90,7 +98,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
         subcategories = result.scalars().all()
 
         if not subcategories:
-            context_payload = _encode_music_context(category, None)
+            context_payload = _encode_music_context(context, category, None)
             return await _render_music_tracks(
                 update,
                 context,
@@ -102,7 +110,7 @@ async def show_music_by_category(update: Update, context: ContextTypes.DEFAULT_T
         buttons = []
         for subcategory in subcategories:
             display = subcategory or "Без подкатегории"
-            context_payload = _encode_music_context(category, subcategory)
+            context_payload = _encode_music_context(context, category, subcategory)
             buttons.append([
                 InlineKeyboardButton(
                     display,
@@ -127,7 +135,7 @@ async def show_music_by_subcategory(update: Update, context: ContextTypes.DEFAUL
     await query.answer()
 
     payload = query.data.replace("music_subcategory_", "", 1)
-    category, subcategory = _decode_music_context(payload)
+    category, subcategory = _decode_music_context(context, payload)
     return await _render_music_tracks(
         update,
         context,
@@ -138,7 +146,7 @@ async def show_music_by_subcategory(update: Update, context: ContextTypes.DEFAUL
 
 
 async def _render_music_tracks(update, context, category, subcategory, context_payload):
-    encoded_context = context_payload or _encode_music_context(category, subcategory)
+    encoded_context = context_payload or _encode_music_context(context, category, subcategory)
 
     async with AsyncSessionLocal() as db:
         stmt = select(Music).where(Music.section == "library")
