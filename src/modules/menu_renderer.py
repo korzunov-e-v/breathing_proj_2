@@ -20,7 +20,7 @@ async def cleanup_practice_messages(chat_id: int, context: ContextTypes.DEFAULT_
         except BadRequest:
             pass
         except Exception:
-            pass
+            logging.exception("failed to delete practice message %s in chat %s", mid, chat_id)
 
 
 async def replace_menu_message(
@@ -40,10 +40,7 @@ async def replace_menu_message(
     media_file = media_files[0] if media_files else None
 
     # 1) удалить предыдущее меню
-    try:
-        old_id = user_data.screen_message_id
-    except:
-        old_id = None
+    old_id = getattr(user_data, "screen_message_id", None)
     if old_id:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=old_id)
@@ -51,7 +48,7 @@ async def replace_menu_message(
             # чаще всего: уже удалено / слишком старое / нет прав
             logging.warning(f"delete old menu failed: {e}")
         except Exception as e:
-            logging.warning(f"delete old menu failed: {e}")
+            logging.exception("delete old menu failed: %s", e)
 
     if reply_markup is None:
         reply_markup = InlineKeyboardMarkup(
@@ -95,10 +92,7 @@ async def replace_menu_message(
         )
 
     # 3) сохранить id нового меню
-    try:
-        user_data.screen_message_id = msg.message_id
-    except:
-        pass
+    user_data.screen_message_id = msg.message_id
     return msg.message_id
 
 
@@ -137,8 +131,10 @@ async def replace_screen(
     if old_id:
         try:
             await context.bot.delete_message(chat_id, old_id)
-        except:
-            pass
+        except BadRequest as e:
+            logging.warning("delete old screen failed: %s", e)
+        except Exception:
+            logging.exception("delete old screen failed")
 
     # Отправляем новое сообщение в зависимости от типа медиа
     if media:

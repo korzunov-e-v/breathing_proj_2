@@ -99,8 +99,10 @@ async def handle_comment_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Удаляем сообщение с запросом комментария если возможно
     try:
         await context.bot.delete_message(update.effective_chat.id, update.message.message_id - 1)
-    except:
+    except BadRequest:
         pass
+    except Exception:
+        logging.exception("failed to delete previous comment prompt message")
 
     # Завершаем практику
     await handle_practice_completion(update, context)

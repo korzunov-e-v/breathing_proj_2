@@ -53,7 +53,7 @@ async def handle_mood_selection(update: Update, context: ContextTypes.DEFAULT_TY
                 await ask_feedback_comment(update, context)
 
         except Exception as e:
-            logging.error(f"Ошибка в handle_mood_selection: {e}")
+            logging.exception("Ошибка в handle_mood_selection: %s", e)
             await query.edit_message_text("Произошла ошибка при сохранении настроения")
 
 

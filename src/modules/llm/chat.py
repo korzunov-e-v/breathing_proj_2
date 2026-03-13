@@ -1,3 +1,5 @@
+import logging
+
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -42,7 +44,7 @@ async def stop_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=None
             )
     except Exception:
-        pass
+        logging.exception("failed to clear chat reply markup on stop_chat")
     user_data.last_chat_message_id = None
 
     from src.modules.menu_renderer import show_main_menu
@@ -76,7 +78,7 @@ async def handle_chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=None
             )
         except Exception:
-            pass
+            logging.exception("failed to clear previous chat reply markup")
 
     await update.message.chat.send_action(action="typing")
     response_text = await chat_with_context(messages=[{"role": "user", "content": user_message}], temperature=0.7, max_tokens=250)

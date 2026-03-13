@@ -118,7 +118,7 @@ class TaskScheduler:
                         self.logger.info(f"Отправлено {len(users_to_notify)} ежедневных уведомлений")
                 await asyncio.sleep(60)  # Проверяем каждую минуту
             except Exception as e:
-                self.logger.error(f"Ошибка в daily_scheduler: {e}")
+                self.logger.exception("Ошибка в daily_scheduler: %s", e)
                 await asyncio.sleep(300)  # Ждем 5 минут при ошибке
 
     async def _send_daily_notification(self, user: User):
@@ -190,4 +190,4 @@ class TaskScheduler:
                 await db.commit()
 
         except Exception as e:
-            self.logger.error(f"Ошибка отправки daily_notification: {e}")
+            self.logger.exception("Ошибка отправки daily_notification: %s", e)

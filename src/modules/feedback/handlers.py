@@ -1,3 +1,5 @@
+import logging
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -69,7 +71,7 @@ async def handle_feedback_message(update: Update, context: ContextTypes.DEFAULT_
         try:
             await context.bot.send_message(chat_id=admin_id, text=admin_text)
         except Exception:
-            pass
+            logging.exception("failed to forward feedback to admin %s", admin_id)
 
     user_data.state = UserState.IDLE
 

@@ -132,7 +132,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if analysis:
                         text += f"\nАнализ:\n{analysis}\n"
                 except Exception as e:
-                    logger.error(f"Ошибка при генерации анализа LLM: {e}")
+                    logger.exception("Ошибка при генерации анализа LLM: %s", e)
                     text += "\nАнализ:\n(Не удалось сгенерировать анализ. Попробуйте позже.)\n"
             else:
                 text += "\nАнализ:\n(Выполни 1+ практик, чтобы получить анализ.)\n"
@@ -154,7 +154,7 @@ async def show_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
         except Exception as e:
-            logger.error(f"Ошибка в show_analytics: {e}")
+            logger.exception("Ошибка в show_analytics: %s", e)
             await replace_menu_message(
                 chat_id=update.effective_chat.id,
                 context=context,
@@ -271,8 +271,8 @@ async def _generate_llm_analysis(context: Dict[str, Any]) -> str:
         return response
 
     except OpenRouterError as e:
-        logger.error(f"Ошибка OpenRouter: {e}")
+        logger.exception("Ошибка OpenRouter: %s", e)
         return None
     except Exception as e:
-        logger.error(f"Ошибка при генерации LLM анализа: {e}")
+        logger.exception("Ошибка при генерации LLM анализа: %s", e)
         return None

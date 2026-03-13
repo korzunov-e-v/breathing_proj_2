@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -123,7 +124,8 @@ class AcquiringService:
             elif payment.status == PaymentStatus.canceled:
                 payment.order.status = OrderStatus.canceled
 
-        except:
+        except Exception:
+            logging.exception("failed to sync payment status for payment_id=%s", payment_id)
             payment.status = PaymentStatus.canceled
 
         await self.session.flush()

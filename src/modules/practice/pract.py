@@ -57,7 +57,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
                     )
                     user_data.practice_data.practice_message_ids.append(audio_msg.message_id)
                 except Exception as e:
-                    logging.error(f"Ошибка отправки аудио: {e}")
+                    logging.exception("Ошибка отправки аудио: %s", e)
             if practice.video_file_id:
                 try:
                     video_msg = await context.bot.send_video(
@@ -67,7 +67,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
                     )
                     user_data.practice_data.practice_message_ids.append(video_msg.message_id)
                 except Exception as e:
-                    logging.error(f"Ошибка отправки видео: {e}")
+                    logging.exception("Ошибка отправки видео: %s", e)
 
             # Сразу показываем меню завершения
             buttons = [
@@ -89,7 +89,7 @@ async def show_practice_content(update: Update, context: ContextTypes.DEFAULT_TY
             )
 
         except Exception as e:
-            logging.error(f"Ошибка в show_practice_content: {e}")
+            logging.exception("Ошибка в show_practice_content: %s", e)
             await context.bot.send_message(chat_id, "Произошла ошибка при загрузке практики")
 
 
@@ -211,7 +211,7 @@ async def handle_practice_completion(update: Update, context: ContextTypes.DEFAU
             else:
                 await message_func("Пользователь не найден")
         except Exception as e:
-            logging.error(f"Ошибка в handle_practice_completion: {e}")
+            logging.exception("Ошибка в handle_practice_completion: %s", e)
             await message_func("Произошла ошибка при завершении практики")
 
 
@@ -309,7 +309,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 Базовые дыхания — это старт.
 
-Полная версия — это семь практик, к которым можно возвращаться в разные моменты дня:
+Полная версия — это шесть практик, к которым можно возвращаться в разные моменты дня:
 
 • когда шумно в голове
 • перед сном
@@ -340,7 +340,7 @@ async def show_daily_practice(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
 
         except Exception as e:
-            logging.error(f"Ошибка в show_daily_practice: {e}")
+            logging.exception("Ошибка в show_daily_practice: %s", e)
             error_text = "Произошла ошибка при загрузке практики. Попробуйте позже."
             if query:
                 await query.edit_message_text(error_text)
@@ -502,7 +502,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
     try:
         practice_id = int(raw_practice_id)
     except ValueError:
-        logging.error("Повторная практика: некорректный идентификатор %s", raw_practice_id)
+        logging.exception("Повторная практика: некорректный идентификатор %s", raw_practice_id)
         await query.edit_message_text("Неверный идентификатор практики")
         return
 
@@ -543,7 +543,7 @@ async def handle_repeat_practice_selection(update: Update, context: ContextTypes
             )
 
         except Exception as e:
-            logging.error(f"Ошибка в handle_repeat_practice_selection: {e}")
+            logging.exception("Ошибка в handle_repeat_practice_selection: %s", e)
             await query.edit_message_text("Произошла ошибка при загрузке практики")
 
 

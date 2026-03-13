@@ -81,8 +81,8 @@ async def _notify_successful_payment(application, session, payment):
             parse_mode="HTML",
             reply_markup=keyboard
         )
-    except Exception as exc:
-        logger.error("failed to notify user %s about payment %s: %s", user.tg_id, payment.id, exc)
+    except Exception:
+        logger.exception("failed to notify user %s about payment %s", user.tg_id, payment.id)
         return
 
     if product.product_type == ProductType.additional_practice:
