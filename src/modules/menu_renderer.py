@@ -11,6 +11,30 @@ from src.db.models import User, Image
 from src.telegram_utils import _detect_type
 
 
+def _get_screen_message_id(context, chat_id: int):
+    user_data = getattr(context, "user_data", None)
+    if user_data is not None and hasattr(user_data, "screen_message_id"):
+        return getattr(user_data, "screen_message_id", None)
+    bot_data = getattr(context, "bot_data", None)
+    if isinstance(bot_data, dict):
+        return bot_data.get(f"screen_message_id:{chat_id}")
+    return None
+
+
+def _set_screen_message_id(context, chat_id: int, message_id: int):
+    user_data = getattr(context, "user_data", None)
+    if user_data is not None:
+        try:
+            user_data.screen_message_id = message_id
+            return
+        except (AttributeError, TypeError):
+            # In background tasks context.user_data may be immutable mappingproxy.
+            pass
+    bot_data = getattr(context, "bot_data", None)
+    if isinstance(bot_data, dict):
+        bot_data[f"screen_message_id:{chat_id}"] = message_id
+
+
 async def cleanup_practice_messages(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserContextData = context.user_data
     ids = user_data.practice_data.practice_message_ids
@@ -34,13 +58,11 @@ async def replace_menu_message(
     parse_mode: str = "HTML",
 ):
     """Удаляет предыдущее меню (если было) и отправляет новое. Сохраняет message_id."""
-    user_data: UserContextData = context.user_data
-
     media_files = media_files or []
     media_file = media_files[0] if media_files else None
 
     # 1) удалить предыдущее меню
-    old_id = getattr(user_data, "screen_message_id", None)
+    old_id = _get_screen_message_id(context, chat_id)
     if old_id:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=old_id)
@@ -92,7 +114,7 @@ async def replace_menu_message(
         )
 
     # 3) сохранить id нового меню
-    user_data.screen_message_id = msg.message_id
+    _set_screen_message_id(context, chat_id, msg.message_id)
     return msg.message_id
 
 
